@@ -19,7 +19,7 @@ class ScholarSearch():
         with open('review_data/reviewer_id_to_profile.json') as file:
             self.reviewer_profile = json.load(file)
 
-    def get_scholar(self, query: Union[str, dict], simple=True, verbose=False, top_n=3):
+    def get_scholar(self, query: Union[str, dict], simple=True, verbose=False, top_n=3, print=True):
         """Get up to 3 relevant candidate scholars by searching over OpenReview profiles and 78k scholar dataset
         
         Parameters
@@ -34,6 +34,8 @@ class ScholarSearch():
         """
         self.search_78k.simple = simple
         self.search_78k.verbose = verbose
+        self.search_78k.print = print
+        self.print = print
 
         scholar_cnt = 0
         if type(query) is dict:
@@ -46,12 +48,13 @@ class ScholarSearch():
             raise TypeError(f'the argument "query" must be str or dict, not {type(query)}.')
 
         scholar_cnt = len(resp)
-        if scholar_cnt == 1:
-            print(f'[Info] In total {scholar_cnt} scholar is found:')
-        else:
-            print(f'[Info] In total {scholar_cnt} scholars are found:')
-        resp_str = json.dumps(resp, indent=2)
-        print(resp_str)
+        if self.print:
+            if scholar_cnt == 1:
+                print(f'[Info] In total {scholar_cnt} scholar is found:')
+            else:
+                print(f'[Info] In total {scholar_cnt} scholars are found:')
+            resp_str = json.dumps(resp, indent=2)
+            print(resp_str)
         return resp   
     
     def search_name(self, name, simple=True, verbose=False, top_n=3, from_dict=False, query_dict=None):
@@ -158,10 +161,11 @@ class ScholarSearch():
                 name_cur = f'{name}{name_cur_cnt}'
                 if not go_ahead:
                     break
-        if len(resp_list) != 1:
-            print(f'[Info] Found {len(resp_list)} scholars using OpenReview REST API.')
-        else:
-            print(f'[Info] Found 1 scholar using OpenReview REST API.')
+        if self.print:
+            if len(resp_list) != 1:
+                print(f'[Info] Found {len(resp_list)} scholars using OpenReview REST API.')
+            else:
+                print(f'[Info] Found 1 scholar using OpenReview REST API.')
         if self.search_78k.verbose:
             print(resp_list)
         return resp_list 
@@ -212,7 +216,7 @@ class ScholarSearch():
             if 'expertise' in query_dict['profile']['content']:
                 for keyword in query_dict['profile']['content']['expertise']:
                     for key in keyword['keywords']:
-                        key - key.strip().lower().replace(' ', '_')
+                        key = key.strip().lower().replace(' ', '_')
                         domain_tags.append(key)
             or_keyword_dict['domain_tags'] = domain_tags
 
@@ -316,24 +320,26 @@ class ScholarSearch():
         self.search_78k.simple = simple
         self.search_78k.verbose = verbose
         # gs_sid
-        if 'gscholar' in query_dict['profile']['content']:
+        if 'gscholar' in query_dict['profile']['content'] and 'user=' in query_dict['profile']['content']['gscholar']:
             gs_id = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
             name_df = self.search_78k.df.loc[self.search_78k.df['gs_sid'] == gs_id].copy()
             if name_df.shape[0] != 0:
                 return self.search_78k._deal_with_simple(name_df)
             else:
-                return []
+                return self.search_gs(gs_id=gs_id)
         
         # search_name
         return self.search_name(query_dict['profile']['id'], simple=simple, top_n=top_n, from_dict=True, query_dict=query_dict)
 
-
+    def search_gs(self, gs_id=None):
+        return []
 
 class Scholar78kSearch():
     def __init__(self):
         self.get_78kdata()
         self.simple = False
         self.verbose = False
+        self.print = True
 
     def get_78kdata(self, source='gdrive'):
         if source == 'gdrive':
@@ -356,7 +362,8 @@ class Scholar78kSearch():
         else:
             raise TypeError(f'Argument "name" passed to Scholar78kSearch.search_name has the wrong type.')
         df_row = self._search_name_bool(name, name_list)
-        print(f'[Info] Found {df_row.shape[0]} scholars are in the same name.')
+        if self.print:
+            print(f'[Info] Found {df_row.shape[0]} scholars are in the same name.')
         if self.verbose:
             print(df_row)
         return self._deal_with_simple(df_row)

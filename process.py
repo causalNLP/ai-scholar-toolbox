@@ -7,15 +7,20 @@ from typing import Union
 import os
 import re
 import time
+import requests
+from bs4 import BeautifulSoup
 
 class ScholarSearch():
     def __init__(self):
         self.get_profiles()
         self.search_78k = Scholar78kSearch()
         # self.search_gs = ScholarGsSearch()
+        self.find_list = []
+        self.cnt_find_gs_78k = 0
+        self.cnt_find_gs_crawl = 0
 
     def reset(self):
-        self.find_url_in78k = False
+        pass
 
     def get_profiles(self):
         with open('review_data/area_chair_id_to_profile.json') as file:
@@ -44,6 +49,7 @@ class ScholarSearch():
         self.search_78k.verbose = verbose
         self.search_78k.print_true = print_true
         self.print_true = print_true
+        self.reset()
 
         scholar_cnt = 0
         if type(query) is dict:
@@ -114,8 +120,6 @@ class ScholarSearch():
 
     def get_or_scholars(self, or_name: Union[str, list]):
         """Get OpenReview candidate scholars list by name through http api response."""
-        import requests
-        from bs4 import BeautifulSoup
         # format the name list to get OpenReview rest api response
         if type(or_name) is list:
             or_name_list = []
@@ -333,10 +337,11 @@ class ScholarSearch():
             gs_id = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
             name_df = self.search_78k.df.loc[self.search_78k.df['gs_sid'] == gs_id].copy()
             if name_df.shape[0] != 0:
-                self.find_url_in78k = True
+                self.cnt_find_gs_78k += 1
                 return self.search_78k._deal_with_simple(name_df)
             else:
-                self.find_url_in78k = False
+                self.cnt_find_gs_crawl += 1
+                self.find_list.append(query_dict)
                 return []
         
         # search_name
@@ -405,33 +410,44 @@ class ScholarGsSearch():
         self.setup()
 
     def setup(self):
-        from selenium import webdriver
-        from webdriver_manager.chrome import ChromeDriverManager
-        from selenium.webdriver.chrome.options import Options
-        options = Options()
-        # 隐藏 正在受到自动软件的控制 这几个字
-        options.add_experimental_option("excludeSwitches", ["enable-automation"])
-        options.add_experimental_option('useAutomationExtension', False)
+        self._authsearch = 'https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors={0}'
+        self._gsidsearch = 'https://scholar.google.com/citations?hl=en&user={0}'
+    
+    def change_name(self, name):
+        new_name = name[1:].split('_')
+        new_name[-1] = re.sub(r'[0-9]+', '', new_name[-1])
+        new_name = ' '.join(new_name)
+        return new_name
+    
+    def get_scholar(self, key, query_dict):
+        url_item = []
+        name = self.change_name(key)
+        if 'gscholar' in query_dict['profile']['content']['gscholar'] and 'user=' in query_dict['profile']['content']['gscholar']:
+            gs_id = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
+            self.search_gsid(gs_id)
+        position, school = None, None
+        if 'position' in query_dict['profile']['content']['history'][0]:
+            position = query_dict['profile']['content']['history'][0]['position']
+        if ('institution' in query_dict['profile']['content']['history'][0] and 
+            'name' in query_dict['profile']['content']['history'][0]['institution']):
+            school = query_dict['profile']['content']['history'][0]['institution']['name']
+        url_item.append('authsearch')
+        url_item.append(self._authsearch.format(requests.utils.quote(name)))
 
-        driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-
-        # 修改 webdriver 值
-        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-            "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        })
-
-        driver.get('https://www.baidu.com')
+        return url_item
 
     def search_gsid(self, gs_id):
-        pass
-
-    def search_name(self, name: Union[str, list]):
-        pass
-
-    def _deal_with_simple(self, gs_dict):
-        pass
-    
-    def generate_single_researcher_info(self, drive, url):
+        url = self._gsidsearch.format(gs_id)
+        resp = requests.get(url)
+        if not resp.ok:
+            return {}
+        resp_str = resp.content.decode('utf-8', errors='ignore')
+        soup = BeautifulSoup(resp_str, 'html.parser')
+        scholar_dict = self._search_gsid_helper(soup)
+        time.sleep(10)
+        return scholar_dict
+        
+    def _search_gsid_helper(self, soup):
         def get_signle_author(element):
             li=[]
             li.append(element.find_elements_by_tag_name("a")[0].get_attribute('href'))
@@ -439,19 +455,20 @@ class ScholarGsSearch():
             for i in element.find_elements_by_class_name("gsc_rsb_a_ext"):
                 li.append(i.get_attribute('textContent'))
             return li
-        qwq = drive.find_elements_by_class_name("gsc_g_hist_wrp")
+        qwq = soup.find_all(class_='gsc_g_hist_wrp')
         if (len(qwq)==0):
             return None
-        idx_list = qwq[0].find_elements_by_class_name("gsc_md_hist_b")[0]
-        years =  [i.get_attribute('textContent') for i in idx_list.find_elements_by_class_name("gsc_g_t")]
-        cites =  [i.get_attribute('innerHTML') for i in idx_list.find_elements_by_class_name("gsc_g_al")]
-        rsb = driver.find_elements_by_class_name("gsc_rsb")[0]
-        Citations_table=[i.get_attribute('textContent') for i in  rsb.find_elements_by_class_name("gsc_rsb_std")]
-        Co_authors = rsb.find_elements_by_class_name("gsc_rsb_a")
+        idx_list = qwq[0].find_all(class_="gsc_md_hist_b")[0]
+        years =  [i.text for i in idx_list.find_all(class_="gsc_g_t")] # str
+        cites =  [i.text for i in idx_list.find_all(class_="gsc_g_al")] # str
+        #TODO
+        rsb = soup.find_all(class_="gsc_rsb")[0]
+        Citations_table=[i.text for i in rsb.find_all(class_="gsc_rsb_std")]
+        Co_authors = rsb.find_all(class_="gsc_rsb_a")
         if len(Co_authors) == 0:
             Co_authors = None
         else:
-            Co_authors = [get_signle_author(i) for i in rsb.find_element_by_class_name("gsc_rsb_a").find_elements_by_class_name("gsc_rsb_a_desc")]
+            Co_authors = [get_signle_author(i) for i in rsb.find_all(class_="gsc_rsb_a").find_all(class_="gsc_rsb_a_desc")]
         
         Reseacher = {"url": url}
         Reseacher["co_authors"] = Co_authors
@@ -498,3 +515,12 @@ class ScholarGsSearch():
         extra_coauthors = driver.find_elements_by_class_name("gsc_ucoar")
         Reseacher['extra_co_authors'] = [generate_signle_coauthor(i) for i in extra_coauthors]
         return Reseacher
+
+    def search_name(self, name: Union[str, list]):
+        pass
+
+    def _deal_with_simple(self, gs_dict):
+        pass
+    
+    def generate_single_researcher_info(self, drive, url):
+        pass

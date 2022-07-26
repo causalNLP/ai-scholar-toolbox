@@ -424,7 +424,7 @@ class ScholarGsSearch():
         name = self.change_name(key)
         if 'gscholar' in query_dict['profile']['content']['gscholar'] and 'user=' in query_dict['profile']['content']['gscholar']:
             gs_id = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
-            self.search_gsid(gs_id)
+            return self.search_gsid(gs_id)
         position, school = None, None
         if 'position' in query_dict['profile']['content']['history'][0]:
             position = query_dict['profile']['content']['history'][0]['position']
@@ -443,17 +443,17 @@ class ScholarGsSearch():
             return {}
         resp_str = resp.content.decode('utf-8', errors='ignore')
         soup = BeautifulSoup(resp_str, 'html.parser')
-        scholar_dict = self._search_gsid_helper(soup)
+        scholar_dict = self._search_gsid_helper(soup, url)
         time.sleep(10)
         return scholar_dict
         
-    def _search_gsid_helper(self, soup):
-        def get_signle_author(element):
+    def _search_gsid_helper(self, soup, url):
+        def get_single_author(element): # get coauthors' information
             li=[]
-            li.append(element.find_elements_by_tag_name("a")[0].get_attribute('href'))
-            li.append(element.find_elements_by_tag_name("a")[0].get_attribute('textContent'))
-            for i in element.find_elements_by_class_name("gsc_rsb_a_ext"):
-                li.append(i.get_attribute('textContent'))
+            li.append(element.a['href']) # href, name, position, email
+            li.append(element.a.text)
+            for i in element.find_all(class_='gsc_reb_a_ext'):
+                li.append(i.text)
             return li
         qwq = soup.find_all(class_='gsc_g_hist_wrp')
         if (len(qwq)==0):
@@ -461,59 +461,58 @@ class ScholarGsSearch():
         idx_list = qwq[0].find_all(class_="gsc_md_hist_b")[0]
         years =  [i.text for i in idx_list.find_all(class_="gsc_g_t")] # str
         cites =  [i.text for i in idx_list.find_all(class_="gsc_g_al")] # str
-        #TODO
         rsb = soup.find_all(class_="gsc_rsb")[0]
         Citations_table=[i.text for i in rsb.find_all(class_="gsc_rsb_std")]
         Co_authors = rsb.find_all(class_="gsc_rsb_a")
         if len(Co_authors) == 0:
             Co_authors = None
         else:
-            Co_authors = [get_signle_author(i) for i in rsb.find_all(class_="gsc_rsb_a").find_all(class_="gsc_rsb_a_desc")]
+            Co_authors = [get_single_author(i) for i in rsb.find_all(class_="gsc_rsb_a")[0].find_all(class_="gsc_rsb_a_desc")]
         
         Reseacher = {"url": url}
         Reseacher["co_authors"] = Co_authors
         Reseacher["citations_table"] = Citations_table
         Reseacher["cites"] = {"years":years, "cites":cites}
-        nameList = driver.find_elements_by_id("gsc_prf_in")
+        nameList = soup.find_all(id="gsc_prf_in")
         if (len(nameList) != 1):
             return None
-        Reseacher["name"] = nameList[0].text
-        infoList = driver.find_elements_by_class_name('gsc_prf_il')
-        infoList = [i.get_attribute('innerHTML') for i in infoList]
+        Reseacher["name"] = nameList[0].text # get author name
+        infoList = soup.find_all(class_='gsc_prf_il')
+        infoList = [i.text for i in infoList]
         Reseacher["extra_info"] = infoList
-        button = driver.find_elements_by_class_name('gs_btnPD')
+        button = soup.find_all(class_='gs_btnPD')
         if (len(button) != 1):
             print("qnq")
             return None
-        while (button[0].is_enabled()):
-            while (button[0].is_enabled()):
-                while (button[0].is_enabled()):
-                    button[0].click()
-                    time.sleep(5)
-                time.sleep(1)
-            time.sleep(2)
+        # while (button[0].is_enabled()):
+        #     while (button[0].is_enabled()):
+        #         while (button[0].is_enabled()):
+        #             button[0].click()
+        #             time.sleep(5)
+        #         time.sleep(1)
+        #     time.sleep(2)
         papers = []
-        items = driver.find_elements_by_class_name('gsc_a_tr')
+        items = soup.find_all(class_='gsc_a_tr')
         for i in items:
-            item = i.find_element_by_class_name('gsc_a_at')
-            url = item.get_attribute("href")
-            paper_info=[j.text for j in i.find_elements_by_class_name('gs_gray')]
-            cite = i.find_element_by_class_name('gsc_a_ac')
-            year = i.find_element_by_class_name('gsc_a_y').find_element_by_class_name("gsc_a_h").text
-            papers.append([url, item.text, 
+            item = i.find_all(class_='gsc_a_at')
+            url = item[0]['href']
+            paper_info=[j.text for j in i.find_all(class_='gs_gray')]
+            cite = i.find_all(class_='gsc_a_ac')
+            year = i.find_all(class_='gsc_a_y')[0].find_all(class_="gsc_a_h")[0].text
+            papers.append([url, item[0].text, 
                             paper_info,
-                        cite.text, cite.get_attribute("href"),
+                        cite.text, cite['href'],
                         year])
         Reseacher["papers"] = papers
-        def generate_signle_coauthor(element):
+        def generate_single_coauthor(element):
             coauthor_dict = {
-                "name":element.find_elements_by_class_name('gs_ai_name')[0].get_attribute('textContent'),
-                "url":element.find_elements_by_class_name('gs_ai_pho')[0].get_attribute('href'),
-                "description":element.get_attribute('innerHTML'),
+                "name":element.find_all(class_='gs_ai_name')[0].text,
+                "url":element.find_all(class_='gs_ai_pho')[0]['href'],
+                "description":element.text,
             }
             return coauthor_dict
-        extra_coauthors = driver.find_elements_by_class_name("gsc_ucoar")
-        Reseacher['extra_co_authors'] = [generate_signle_coauthor(i) for i in extra_coauthors]
+        extra_coauthors = soup.find_all(class_="gsc_ucoar")
+        Reseacher['extra_co_authors'] = [generate_single_coauthor(i) for i in extra_coauthors]
         return Reseacher
 
     def search_name(self, name: Union[str, list]):

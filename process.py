@@ -36,7 +36,7 @@ class ScholarSearch():
         self.openreview_profile.update(reviewer_profile)
         print(len(self.openreview_profile))
 
-    def get_scholar(self, query: Union[str, dict], simple=True, verbose=False, top_n=3, print_true=True):
+    def get_scholar(self, query: Union[str, dict], simple=True, verbose=False, top_n=3, print_true=True, wo_full=True):
         """Get up to 3 relevant candidate scholars by searching over OpenReview profiles and 78k scholar dataset
         
         Parameters
@@ -117,12 +117,12 @@ class ScholarSearch():
             if from_dict:
                 print('Not find by gs_sid')
                 or_resp = None
-                resp_gs = self.search_gs.search_name(name, query_dict, wo_full=wo_full,  simple=simple)
+                resp_gs = self.search_gs.search_name(name, query_dict, wo_full=wo_full, simple=simple)
                 resp = self.select_final_cands(resp, or_resp, top_n, query_dict=query_dict, resp_gs_prop={'wo_full': wo_full, 'resp_gs': resp_gs})
             else:
                 or_resp = self.get_or_scholars(or_name)
                 # TODO: resp_gs for only searching name is not implemented
-                resp = self.select_final_cands(resp, or_resp, top_n)
+                resp = self.select_final_cands(resp, or_resp, top_n, simple=simple)
         return resp
     
 
@@ -192,11 +192,36 @@ class ScholarSearch():
         return resp_list 
         # NOTE: the dict in this list is in a different format than the dict from OpenReview dataset.
 
-    def select_final_cands(self, resp, or_resp, top_n, query_dict=None, resp_gs_prop=None):
+    def select_final_cands(self, resp, or_resp, top_n, query_dict=None, resp_gs_prop=None, simple=True):
         """Select final candidates according to the response from OpenReview and 78k data."""
         # get useful data from or_resp
         or_keyword_list = generate_or_keyword_list(or_resp, query_dict, resp_gs_prop=resp_gs_prop)
 
+        # merge resp with resp_gs
+        if resp_gs_prop is not None:
+            wo_full = resp_gs_prop['wo_full']
+            resp_gs = resp_gs_prop['resp_gs']
+            if query_dict is None:
+                raise NotImplementedError
+            for resp_gs_item in resp_gs:
+                find_flag = False
+                # gs_sid
+                for resp_item in resp:
+                    if resp_gs_item['gs_sid'] == resp_item['gs_sid']:
+                        find_flag = True
+                        break
+                if find_flag:
+                    continue
+                # construct new prep
+                if wo_full:
+                    # generate full dict
+                    self.search_gs.driver.get(resp_gs_item['url'])
+                    resp_gs_full_item = self.search_gs._search_gsid_helper(self.search_gs.driver, resp_gs_item['url'], simple=simple)
+                    resp.append(resp_gs_full_item)
+                else:
+                    resp.append(resp_gs_item)
+
+        # calculate rankings
         rank = {}
         for idx_cand, cand in enumerate(resp):
             rank[idx_cand] = []
@@ -601,7 +626,7 @@ class ScholarGsSearch():
         useful_info_ext_list = []
         if len(useful_info_list) != 0:
             for scholar_webdriver in useful_info_list:
-                name = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_name').get_attribute('textContent')
+                name = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_name').get_attribute('textContent').strip()
                 # check whether name is correct
                 not_a_candidate = False
                 for name_fragment in name_list:
@@ -612,13 +637,13 @@ class ScholarGsSearch():
                     continue
                 
                 # grab all the other information
-                pos_org = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_aff').get_attribute('textContent')
-                email_str = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_eml').get_attribute('textContent')
-                cite = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_cby').get_attribute('textContent')
-                url = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_name').find_element(By.TAG_NAME, 'a').get_attribute('href')
+                pos_org = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_aff').get_attribute('textContent').strip()
+                email_str = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_eml').get_attribute('textContent').strip()
+                cite = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_cby').get_attribute('textContent').strip()
+                url = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_name').find_element(By.TAG_NAME, 'a').get_attribute('href').strip()
                 domain_labels = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_int').find_elements(By.CLASS_NAME, 'gs_ai_ont_int')
                 for idx, domain in enumerate(domain_labels):
-                    domain_labels[idx] = domain.get_attribute('textContent')
+                    domain_labels[idx] = domain.get_attribute('textContent').strip()
 
                 # continue processing
                 if 'user=' in url:

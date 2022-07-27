@@ -10,7 +10,8 @@ import time
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.options import ChromiumOptions
+from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
 class ScholarSearch():
@@ -415,14 +416,14 @@ class ScholarGsSearch():
     def setup(self):
         self._authsearch = 'https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors={0}'
         self._gsidsearch = 'https://scholar.google.com/citations?hl=en&user={0}'
-        options = Options()
-        # 隐藏 正在受到自动软件的控制 这几个字
+        options = ChromiumOptions()
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
+        options.add_argument('--headless')
+        options.add_argument('--no-sandbox')
+        options.add_argument('--disable-dev-shm-usage')
 
-        self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=options)
-
-        # 修改 webdriver 值
+        self.driver = webdriver.Chrome('../chromedriver', options=options)
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         })
@@ -450,7 +451,7 @@ class ScholarGsSearch():
 
         return url_item
 
-    def search_gsid(self, gs_id):
+    def search_gsid(self, gs_id, simple=True):
         url = self._gsidsearch.format(gs_id)
         # resp = requests.get(url)
         # if not resp.ok:
@@ -459,77 +460,79 @@ class ScholarGsSearch():
         # soup = BeautifulSoup(resp_str, 'html.parser')
         
         self.driver.get(url)
-        scholar_dict = self._search_gsid_helper(self.driver, url)
+        scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
         time.sleep(10)
         return scholar_dict
         
-    def _search_gsid_helper(self, driver, url):
-        def get_signle_author(element):
+    def _search_gsid_helper(self, driver, url, simple=True):
+        def get_single_author(element):
             li=[]
-            li.append(element.find_elements_by_tag_name("a")[0].get_attribute('href'))
-            li.append(element.find_elements_by_tag_name("a")[0].get_attribute('textContent'))
-            for i in element.find_elements_by_class_name("gsc_rsb_a_ext"):
+            li.append(element.find_elements(By.TAG_NAME, "a")[0].get_attribute('href'))
+            li.append(element.find_elements(By.TAG_NAME, "a")[0].get_attribute('textContent'))
+            for i in element.find_elements(By.CLASS_NAME, "gsc_rsb_a_ext"):
                 li.append(i.get_attribute('textContent'))
             return li
-        qwq = driver.find_elements_by_class_name("gsc_g_hist_wrp")
+        qwq = driver.find_elements(By.CLASS_NAME, "gsc_g_hist_wrp")
         if (len(qwq)==0):
             return None
-        idx_list = qwq[0].find_elements_by_class_name("gsc_md_hist_b")[0]
-        years =  [i.get_attribute('textContent') for i in idx_list.find_elements_by_class_name("gsc_g_t")]
-        cites =  [i.get_attribute('innerHTML') for i in idx_list.find_elements_by_class_name("gsc_g_al")]
-        rsb = driver.find_elements_by_class_name("gsc_rsb")[0]
-        Citations_table=[i.get_attribute('textContent') for i in  rsb.find_elements_by_class_name("gsc_rsb_std")]
-        Co_authors = rsb.find_elements_by_class_name("gsc_rsb_a")
+        idx_list = qwq[0].find_elements(By.CLASS_NAME, "gsc_md_hist_b")[0]
+        years =  [i.get_attribute('textContent') for i in idx_list.find_elements(By.CLASS_NAME, "gsc_g_t")]
+        cites =  [i.get_attribute('innerHTML') for i in idx_list.find_elements(By.CLASS_NAME, "gsc_g_al")]
+        rsb = driver.find_elements(By.CLASS_NAME, "gsc_rsb")[0]
+        Citations_table=[i.get_attribute('textContent') for i in  rsb.find_elements(By.CLASS_NAME, "gsc_rsb_std")]
+        Co_authors = rsb.find_elements(By.CLASS_NAME, "gsc_rsb_a")
         if len(Co_authors) == 0:
             Co_authors = None
         else:
-            Co_authors = [get_signle_author(i) for i in rsb.find_element_by_class_name("gsc_rsb_a").find_elements_by_class_name("gsc_rsb_a_desc")]
+            Co_authors = [get_single_author(i) for i in rsb.find_element(By.CLASS_NAME, "gsc_rsb_a").find_elements(By.CLASS_NAME, "gsc_rsb_a_desc")]
 
-        Reseacher = {"url": url}
-        Reseacher["co_authors"] = Co_authors
-        Reseacher["citations_table"] = Citations_table
-        Reseacher["cites"] = {"years":years, "cites":cites}
-        nameList = driver.find_elements_by_id("gsc_prf_in")
+        Researcher = {"url": url}
+        Researcher["co_authors"] = Co_authors
+        Researcher["citation_table"] = [Citations_table[0], Citations_table[2]]
+        Researcher["cites"] = {"years":years, "cites":cites}
+        nameList = driver.find_elements(By.ID, "gsc_prf_in")
         if (len(nameList) != 1):
             return None
-        Reseacher["name"] = nameList[0].text
-        infoList = driver.find_elements_by_class_name('gsc_prf_il')
-        infoList = [i.get_attribute('innerHTML') for i in infoList]
-        Reseacher["extra_info"] = infoList
-        button = driver.find_elements_by_class_name('gs_btnPD')
-        if (len(button) != 1):
-            print("qnq")
-            return None
-        while (button[0].is_enabled()):
+        Researcher["name"] = nameList[0].text
+        infoList = driver.find_elements(By.CLASS_NAME, 'gsc_prf_il')
+        infoList[0] = infoList[0].get_attribute('innerHTML')
+        Researcher['organization'] = infoList[0]
+        Researcher['domain_labels'] = [i.get_attribute('textContent') for i in infoList[2].find_elements(By.CLASS_NAME, 'gsc_prf_inta')]
+        if not simple:
+            button = driver.find_elements(By.CLASS_NAME, 'gs_btnPD')
+            if (len(button) != 1):
+                print("qnq")
+                return None
             while (button[0].is_enabled()):
                 while (button[0].is_enabled()):
-                    button[0].click()
-                    time.sleep(5)
-                time.sleep(1)
-            time.sleep(2)
-        papers = []
-        items = driver.find_elements_by_class_name('gsc_a_tr')
-        for i in items:
-            item = i.find_element_by_class_name('gsc_a_at')
-            url = item.get_attribute("href")
-            paper_info=[j.text for j in i.find_elements_by_class_name('gs_gray')]
-            cite = i.find_element_by_class_name('gsc_a_ac')
-            year = i.find_element_by_class_name('gsc_a_y').find_element_by_class_name("gsc_a_h").text
-            papers.append([url, item.text, 
-                            paper_info,
-                        cite.text, cite.get_attribute("href"),
-                        year])
-        Reseacher["papers"] = papers
-        def generate_signle_coauthor(element):
+                    while (button[0].is_enabled()):
+                        button[0].click()
+                        time.sleep(5)
+                    time.sleep(1)
+                time.sleep(2)
+            papers = []
+            items = driver.find_elements(By.CLASS_NAME, 'gsc_a_tr')
+            for i in items:
+                item = i.find_element(By.CLASS_NAME, 'gsc_a_at')
+                url = item.get_attribute("href")
+                paper_info=[j.text for j in i.find_elements(By.CLASS_NAME, 'gs_gray')]
+                cite = i.find_element(By.CLASS_NAME, 'gsc_a_ac')
+                year = i.find_element(By.CLASS_NAME, 'gsc_a_y').find_element(By.CLASS_NAME, "gsc_a_h").text
+                papers.append([url, item.text, 
+                                paper_info,
+                            cite.text, cite.get_attribute("href"),
+                            year])
+            Researcher["papers"] = papers
+        def generate_single_coauthor(element):
             coauthor_dict = {
-                "name":element.find_elements_by_class_name('gs_ai_name')[0].get_attribute('textContent'),
-                "url":element.find_elements_by_class_name('gs_ai_pho')[0].get_attribute('href'),
+                "name":element.find_elements(By.CLASS_NAME, 'gs_ai_name')[0].get_attribute('textContent'),
+                "url":element.find_elements(By.CLASS_NAME, 'gs_ai_pho')[0].get_attribute('href'),
                 "description":element.get_attribute('innerHTML'),
             }
             return coauthor_dict
-        extra_coauthors = driver.find_elements_by_class_name("gsc_ucoar")
-        Reseacher['extra_co_authors'] = [generate_signle_coauthor(i) for i in extra_coauthors]
-        return Reseacher
+        extra_coauthors = driver.find_elements(By.CLASS_NAME, "gsc_ucoar")
+        Researcher['extra_co_authors'] = [generate_single_coauthor(i) for i in extra_coauthors]
+        return Researcher
 
     def search_name(self, name: Union[str, list]):
         pass

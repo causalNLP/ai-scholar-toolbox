@@ -12,13 +12,13 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.chrome.options import ChromiumOptions
 from selenium.webdriver.common.by import By
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.remote.errorhandler import NoSuchElementException
 
 class ScholarSearch():
     def __init__(self):
         self.get_profiles()
         self.search_78k = Scholar78kSearch()
-        # self.search_gs = ScholarGsSearch()
+        self.search_gs = ScholarGsSearch()
         self.find_list = []
         self.cnt_find_gs_78k = 0
         self.cnt_find_gs_crawl = 0
@@ -78,7 +78,7 @@ class ScholarSearch():
         # self.search_gs.get_scholar(query, simple=simple, verbose=verbose, top_n=top_n, print=print)
         return resp   
     
-    def search_name(self, name, simple=True, verbose=False, top_n=3, from_dict=False, query_dict=None):
+    def search_name(self, name, simple=True, verbose=False, top_n=3, from_dict=False, query_dict=None, wo_full=True):
         """Search gs profile given name or OpenReview id.
         
         Parameters
@@ -113,11 +113,15 @@ class ScholarSearch():
         if real_name:
             # it inputs a real name (firstname, lastname)
             resp = self.search_78k.search_name(name)
-            or_resp = self.get_or_scholars(or_name)
+            # TODO: integrate resp_gs with resp
             if from_dict:
                 print('Not find by gs_sid')
-                resp = self.select_final_cands(resp, or_resp, top_n, query_dict=query_dict)
+                or_resp = None
+                resp_gs = self.search_gs.search_name(name, query_dict, wo_full=wo_full,  simple=simple)
+                resp = self.select_final_cands(resp, or_resp, top_n, query_dict=query_dict, resp_gs_prop={'wo_full': wo_full, 'resp_gs': resp_gs})
             else:
+                or_resp = self.get_or_scholars(or_name)
+                # TODO: resp_gs for only searching name is not implemented
                 resp = self.select_final_cands(resp, or_resp, top_n)
         return resp
     
@@ -188,63 +192,10 @@ class ScholarSearch():
         return resp_list 
         # NOTE: the dict in this list is in a different format than the dict from OpenReview dataset.
 
-    def select_final_cands(self, resp, or_resp, top_n, query_dict=None):
+    def select_final_cands(self, resp, or_resp, top_n, query_dict=None, resp_gs_prop=None):
         """Select final candidates according to the response from OpenReview and 78k data."""
         # get useful data from or_resp
-        if query_dict is None:
-            or_keyword_list = []
-            for or_resp_item in or_resp:
-                or_keyword_dict = {}
-                # url
-                url = None
-                for link in or_resp_item['props']['pageProps']['profile']['links']:
-                    if link['name'] == 'Google Scholar':
-                        url = link['url']
-                        break
-                if url is not None:
-                    # get gs_sid
-                    gs_id = url.split('user=', 1)[1][:12]
-                    or_keyword_dict['gs_sid'] = gs_id
-                else:
-                    or_keyword_dict['gs_sid'] = ''
-                
-                # domain_tags
-                domain_tags = []
-                if 'expertise' in or_resp_item['props']['pageProps']['profile']:
-                    for keyword in or_resp_item['props']['pageProps']['profile']['expertise']:
-                        for key in keyword['keywords']:
-                            key = key.strip().lower().replace(' ', '_')                        
-                            domain_tags.append(key)
-                or_keyword_dict['domain_tags'] = domain_tags
-
-                # relations
-                coauthors = []
-                if 'relations' in or_resp_item['props']['pageProps']['profile']:
-                    for relation in or_resp_item['props']['pageProps']['profile']['relations']:
-                        coauthors.append(relation['name'])
-                or_keyword_dict['coauthors'] = coauthors
-
-                or_keyword_list.append(or_keyword_dict)
-        else:
-            or_keyword_list = []
-            or_keyword_dict = {}
-            or_keyword_dict['gs_sid'] = ''
-            domain_tags = []
-            if 'expertise' in query_dict['profile']['content']:
-                for keyword in query_dict['profile']['content']['expertise']:
-                    for key in keyword['keywords']:
-                        key = key.strip().lower().replace(' ', '_')
-                        domain_tags.append(key)
-            or_keyword_dict['domain_tags'] = domain_tags
-
-            coauthors = []
-            if 'relations' in query_dict['profile']['content']:
-                for relation in query_dict['profile']['content']['relations']:
-                    coauthors.append(relation['name'])
-            or_keyword_dict['coauthors'] = coauthors
-
-            or_keyword_list.append(or_keyword_dict)
-
+        or_keyword_list = generate_or_keyword_list(or_resp, query_dict, resp_gs_prop=resp_gs_prop)
 
         rank = {}
         for idx_cand, cand in enumerate(resp):
@@ -259,11 +210,11 @@ class ScholarSearch():
                 if cand['gs_sid'] == or_scholar['gs_sid']: 
                     gs_sid_flag = 1
 
-                # domain_tags
+                # domain_labels
                 if cand['domain_labels'] is not None:
                     for cand_domain_tag in cand['domain_labels']:
                         cnt_all += 1
-                        for or_domain_tag in or_scholar['domain_tags']:
+                        for or_domain_tag in or_scholar['domain_labels']:
                             if cand_domain_tag == or_domain_tag:
                                 cnt_true[idx_or_scholar] += 1
                 
@@ -284,7 +235,7 @@ class ScholarSearch():
             else:
                 rank[idx_cand].append(0)
             
-            # domain_tags
+            # domain_labels
             for i in range(len(cnt_true)):
                 if cnt_all == 0:
                     cnt_true[i] = 0
@@ -338,20 +289,86 @@ class ScholarSearch():
         self.search_78k.verbose = verbose
         # gs_sid
         if 'gscholar' in query_dict['profile']['content'] and 'user=' in query_dict['profile']['content']['gscholar']:
-            gs_id = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
-            name_df = self.search_78k.df.loc[self.search_78k.df['gs_sid'] == gs_id].copy()
+            gs_sid = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
+            name_df = self.search_78k.df.loc[self.search_78k.df['gs_sid'] == gs_sid].copy()
             if name_df.shape[0] != 0:
                 self.cnt_find_gs_78k += 1
                 return self.search_78k._deal_with_simple(name_df)
             else:
                 self.cnt_find_gs_crawl += 1
                 self.find_list.append(query_dict)
-                return []
+                return self.search_gs.search_gsid(gs_sid, simple=simple)
         
         # search_name
         return self.search_name(query_dict['profile']['id'], simple=simple, top_n=top_n, from_dict=True, query_dict=query_dict)
 
+def generate_or_keyword_list(or_resp, query_dict, resp_gs_prop=None):
+    if query_dict is None:
+        or_keyword_list = []
+        for or_resp_item in or_resp:
+            or_keyword_dict = {}
+            # url
+            url = None
+            for link in or_resp_item['props']['pageProps']['profile']['links']:
+                if link['name'] == 'Google Scholar':
+                    url = link['url']
+                    break
+            if url is not None:
+                # get gs_sid
+                gs_sid = url.split('user=', 1)[1][:12]
+                or_keyword_dict['gs_sid'] = gs_sid
+            else:
+                or_keyword_dict['gs_sid'] = ''
+            
+            # domain_labels
+            domain_labels = []
+            if 'expertise' in or_resp_item['props']['pageProps']['profile']:
+                for keyword in or_resp_item['props']['pageProps']['profile']['expertise']:
+                    for key in keyword['keywords']:
+                        key = key.strip().lower().replace(' ', '_')                        
+                        domain_labels.append(key)
+            or_keyword_dict['domain_labels'] = domain_labels
 
+            # relations
+            coauthors = []
+            if 'relations' in or_resp_item['props']['pageProps']['profile']:
+                for relation in or_resp_item['props']['pageProps']['profile']['relations']:
+                    coauthors.append(relation['name'])
+            or_keyword_dict['coauthors'] = coauthors
+
+            # TODO: update to the same status as in "else" statement
+
+            or_keyword_list.append(or_keyword_dict)
+    elif resp_gs_prop is None:
+        or_keyword_list = []
+        or_keyword_dict = {}
+        or_keyword_dict['gs_sid'] = ''
+        domain_labels = []
+        if 'expertise' in query_dict['profile']['content']:
+            for keyword in query_dict['profile']['content']['expertise']:
+                for key in keyword['keywords']:
+                    key = key.strip().lower().replace(' ', '_')
+                    domain_labels.append(key)
+        or_keyword_dict['domain_labels'] = domain_labels
+
+        coauthors = []
+        if 'relations' in query_dict['profile']['content']:
+            for relation in query_dict['profile']['content']['relations']:
+                coauthors.append(relation['name'])
+        or_keyword_dict['coauthors'] = coauthors
+
+        if 'history' in query_dict['profile']['content']:
+            tmp_dict = query_dict['profile']['content']['history'][0]
+            or_keyword_dict['position'] = tmp_dict['position']
+            or_keyword_dict['email_suffix'] = tmp_dict['institution']['domain']
+            or_keyword_dict['organization'] = tmp_dict['institution']['name']
+
+        or_keyword_list.append(or_keyword_dict)
+    else:
+        resp_gs = resp_gs_prop['resp_gs']
+        or_keyword_list = resp_gs
+
+    return or_keyword_list
 
 
 class Scholar78kSearch():
@@ -407,7 +424,7 @@ class Scholar78kSearch():
         name_df = self.df.loc[self.df['name'] == name].copy()
         name_list_df = self.df.loc[self.df['name'].str.contains(pat = f'^{name_list[0].capitalize()} .*{name_list[-1].capitalize()}', regex=True, case=False)].copy()
         return pd.concat([name_df, name_list_df]).drop_duplicates(subset=['url']).reset_index(drop=True)
-    
+
 
 class ScholarGsSearch():
     def __init__(self):
@@ -438,8 +455,8 @@ class ScholarGsSearch():
         url_item = []
         name = self.change_name(key)
         if 'gscholar' in query_dict['profile']['content']['gscholar'] and 'user=' in query_dict['profile']['content']['gscholar']:
-            gs_id = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
-            return self.search_gsid(gs_id)
+            gs_sid = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
+            return self.search_gsid(gs_sid)
         position, school = None, None
         if 'position' in query_dict['profile']['content']['history'][0]:
             position = query_dict['profile']['content']['history'][0]['position']
@@ -451,8 +468,8 @@ class ScholarGsSearch():
 
         return url_item
 
-    def search_gsid(self, gs_id, simple=True):
-        url = self._gsidsearch.format(gs_id)
+    def search_gsid(self, gs_sid, simple=True):
+        url = self._gsidsearch.format(gs_sid)
         # resp = requests.get(url)
         # if not resp.ok:
         #     return {}
@@ -461,8 +478,8 @@ class ScholarGsSearch():
         
         self.driver.get(url)
         scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
-        time.sleep(10)
-        return scholar_dict
+        time.sleep(5)
+        return [scholar_dict]
         
     def _search_gsid_helper(self, driver, url, simple=True):
         def get_single_author(element):
@@ -472,6 +489,7 @@ class ScholarGsSearch():
             for i in element.find_elements(By.CLASS_NAME, "gsc_rsb_a_ext"):
                 li.append(i.get_attribute('textContent'))
             return li
+
         qwq = driver.find_elements(By.CLASS_NAME, "gsc_g_hist_wrp")
         if (len(qwq)==0):
             return None
@@ -523,6 +541,7 @@ class ScholarGsSearch():
                             cite.text, cite.get_attribute("href"),
                             year])
             Researcher["papers"] = papers
+
         def generate_single_coauthor(element):
             coauthor_dict = {
                 "name":element.find_elements(By.CLASS_NAME, 'gs_ai_name')[0].get_attribute('textContent'),
@@ -534,8 +553,104 @@ class ScholarGsSearch():
         Researcher['extra_co_authors'] = [generate_single_coauthor(i) for i in extra_coauthors]
         return Researcher
 
-    def search_name(self, name: Union[str, list]):
-        pass
+    def search_name(self, name: Union[str, list], query_dict, wo_full=True, simple=True):
+        if type(name) is list:
+            name_list = [name[0], name[-1]]
+            name = f'{name[0]} {name[-1]}' 
+        elif type(name) is str:
+            name_list = name.split(' ')
+        else:
+            raise TypeError('Argument "name" passed to ScholarGsSearch.search_name has the wrong type.')
+        # first try (name email_suffix position organization) as url
+        url_fragment = f'{name} '
+        or_keyword_list = generate_or_keyword_list(None, query_dict)
+        if 'email_suffix' in or_keyword_list:
+            url_fragment_new = url_fragment + or_keyword_list['email_suffix'] + ' '
+        if 'position' in or_keyword_list:
+            url_fragment_new = url_fragment_new + or_keyword_list['position'] + ' '
+        if 'organization' in or_keyword_list:
+            url_fragment_new = url_fragment_new + or_keyword_list['organization'] + ' '
+
+        url = self._authsearch.format(url_fragment_new)
+        self.driver.get(url)
+        scholar_list = self._search_name_helper(self.driver, name_list)
+        if len(scholar_list) > 0:
+            if wo_full:
+                return scholar_list
+            else:
+                return self._search_name_list_expand(scholar_list, simple=simple)
+        
+        # second try (name email_suffix)
+        if 'email_suffix' in or_keyword_list:
+            url_fragment_new = url_fragment + or_keyword_list['email_suffix'] + ' '
+        url = self._authsearch.format(url_fragment_new)
+        self.driver.get(url)
+        scholar_list = self._search_name_helper(self.driver, name_list)
+        if len(scholar_list) > 0:
+            if wo_full:
+                return scholar_list
+            else:
+                return self._search_name_list_expand(scholar_list, simple=simple)
+        
+        # finally,
+        return []
+
+    def _search_name_helper(self, driver, name_list):
+        # iterate over searched list, find dicts that contains the name (including)
+        useful_info_list = driver.find_elements(By.CLASS_NAME, 'gs_ai_t')
+        useful_info_ext_list = []
+        if len(useful_info_list) != 0:
+            for scholar_webdriver in useful_info_list:
+                name = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_name').get_attribute('textContent')
+                # check whether name is correct
+                not_a_candidate = False
+                for name_fragment in name_list:
+                    if name_fragment.lower() not in name.lower():
+                        not_a_candidate = True
+                        break
+                if not_a_candidate:
+                    continue
+                
+                # grab all the other information
+                pos_org = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_aff').get_attribute('textContent')
+                email_str = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_eml').get_attribute('textContent')
+                cite = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_cby').get_attribute('textContent')
+                url = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_name').find_element(By.TAG_NAME, 'a').get_attribute('href')
+                domain_labels = scholar_webdriver.find_element(By.CLASS_NAME, 'gs_ai_int').find_elements(By.CLASS_NAME, 'gs_ai_ont_int')
+                for idx, domain in enumerate(domain_labels):
+                    domain_labels[idx] = domain.get_attribute('textContent')
+
+                # continue processing
+                if 'user=' in url:
+                    gs_sid = url.split('user=', 1)[1][:12]
+                else:
+                    gs_sid = None
+                
+                match = re.search(r'[\w-]+\.[\w.-]+', email_str)
+                email_str = match.group(0)
+
+                useful_info_ext_list.append({
+                    'name': name,
+                    'pos_org': pos_org,
+                    'email': email_str,
+                    'cite': [int(s) for s in cite.split() if s.isdigit()][0],
+                    'url': url,
+                    'gs_sid': gs_sid,
+                    'domain_labels': domain_labels
+                })
+        return useful_info_ext_list
+        
+    def _search_name_list_expand(self, scholar_list, simple=True):
+        new_scholar_list = []
+        for scholar in scholar_list:
+            if 'gs_sid' in scholar:
+                url = self._gsidsearch.format(scholar['gs_sid'])
+                self.driver.get(url)
+                scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
+                new_scholar_list.append(scholar_dict)
+                time.sleep(5)
+        return new_scholar_list
+
 
     def _deal_with_simple(self, gs_dict):
         pass

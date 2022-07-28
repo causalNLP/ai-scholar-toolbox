@@ -113,14 +113,15 @@ class ScholarSearch():
             # name string
         if real_name:
             # it inputs a real name (firstname, lastname)
-            resp = self.search_78k.search_name(name)
+            resp = self.search_78k.search_name(name, query_dict)
             # TODO: integrate resp_gs with resp
             if from_dict:
-                print('Not find by gs_sid')
+                print('Not find by gs_sid, search from_dict')
                 or_resp = None
                 resp_gs = self.search_gs.search_name(name, query_dict, wo_full=wo_full, simple=simple)
                 resp = self.select_final_cands(resp, or_resp, top_n, query_dict=query_dict, resp_gs_prop={'wo_full': wo_full, 'resp_gs': resp_gs})
             else:
+                print('Not found by gs_sid, search without from_dict')
                 or_resp = self.get_or_scholars(or_name)
                 # TODO: resp_gs for only searching name is not implemented
                 resp = self.select_final_cands(resp, or_resp, top_n, simple=simple)
@@ -219,7 +220,8 @@ class ScholarSearch():
                     self.search_gs.driver.get(resp_gs_item['url'])
                     time.sleep(5)
                     resp_gs_full_item = self.search_gs._search_gsid_helper(self.search_gs.driver, resp_gs_item['url'], simple=simple)
-                    resp.append(resp_gs_full_item)
+                    if resp_gs_full_item is not None:
+                        resp.append(resp_gs_full_item)
                 else:
                     resp.append(resp_gs_item)
         # calculate rankings
@@ -302,16 +304,16 @@ class ScholarSearch():
             domain_tag_idxes = np.argsort(domain_tag_rank)[::-1]
             relation_idxes = np.argsort(relation_rank)[::-1]
             for idx in relation_idxes:
-                if relation_rank[idx] == 0:
-                    break
+                # if relation_rank[idx] == 0:
+                #     break
                 if len(final_idx) < top_n:
                     if idx not in final_idx:
                         final_idx.append(idx)
                 else:
                     break
             for idx in domain_tag_idxes:
-                if domain_tag_rank[idx] == 0:
-                    break
+                # if domain_tag_rank[idx] == 0:
+                #     break
                 if len(final_idx) < top_n:
                     if idx not in final_idx:
                         final_idx.append(idx)
@@ -332,9 +334,11 @@ class ScholarSearch():
             gs_sid = query_dict['profile']['content']['gscholar'].split('user=', 1)[1][:12]
             name_df = self.search_78k.df.loc[self.search_78k.df['gs_sid'] == gs_sid].copy()
             if name_df.shape[0] != 0:
+                print(f'[Info] Found a scholar using 78k gs_sid')
                 self.cnt_find_gs_78k += 1
                 return self.search_78k._deal_with_simple(name_df)
             else:
+                print(f'[Info] Found a scholar using query dict gs_sid')
                 self.cnt_find_gs_crawl += 1
                 self.find_list.append(query_dict)
                 return self.search_gs.search_gsid(gs_sid, simple=simple)
@@ -392,12 +396,12 @@ def generate_or_keyword_list(or_resp, query_dict):
         or_keyword_dict['domain_labels'] = domain_labels
 
         coauthors = []
-        if 'relations' in query_dict['profile']['content']:
+        if 'relations' in query_dict['profile']['content'] and len(query_dict['profile']['content']['relations']) > 0:
             for relation in query_dict['profile']['content']['relations']:
                 coauthors.append(relation['name'])
         or_keyword_dict['coauthors'] = coauthors
 
-        if 'history' in query_dict['profile']['content']:
+        if 'history' in query_dict['profile']['content'] and len(query_dict['profile']['content']['history']) > 0:
             tmp_dict = query_dict['profile']['content']['history'][0]
             if 'position' in tmp_dict:
                 or_keyword_dict['position'] = tmp_dict['position']
@@ -438,7 +442,7 @@ class Scholar78kSearch():
         self.df.rename(columns={'co_authors': 'coauthors'}, inplace=True)
         # NOTE: rename, domain_tags
     
-    def search_name(self, name: Union[str, list]):
+    def search_name(self, name: Union[str, list], query_dict):
         if type(name) is list:
             name_list = [name[0], name[-1]]
             name = f'{name[0]} {name[-1]}' 
@@ -446,9 +450,12 @@ class Scholar78kSearch():
             name_list = name.split(' ')
         else:
             raise TypeError(f'Argument "name" passed to Scholar78kSearch.search_name has the wrong type.')
-        df_row = self._search_name_bool(name, name_list)
+        df_row = self._search_name_only_helper(name, name_list)
+        if df_row.shape[0] > 0:
+            df_row = self._search_name_others_helper(df_row, query_dict)
         if self.print_true:
-            print(f'[Info] Found {df_row.shape[0]} scholars are in the same name.')
+            print(f'[Info] Found {df_row.shape[0]} scholars are in 78k data.')
+            print(f'[Debug] Names: {df_row["name"]}')
         if self.verbose:
             print(df_row)
         return self._deal_with_simple(df_row)
@@ -460,7 +467,7 @@ class Scholar78kSearch():
         df_row = df_row.drop(['co_authors_all'], axis=1)
         return df_row.to_dict(orient='records')
 
-    def _search_name_bool(self, name, name_list):
+    def _search_name_only_helper(self, name, name_list):
         """Helper function of search_name
 
         Returns
@@ -473,6 +480,9 @@ class Scholar78kSearch():
         name_list_df = self.df.loc[self.df['name'].str.contains(pat = f'^{name_list[0].capitalize()} .*{name_list[-1].capitalize()}', regex=True, case=False)].copy()
         return pd.concat([name_df, name_list_df]).drop_duplicates(subset=['url']).reset_index(drop=True)
 
+    def _search_name_others_helper(self, df_row, query_dict):
+
+        return df_row
 
 class ScholarGsSearch():
     def __init__(self):
@@ -527,7 +537,12 @@ class ScholarGsSearch():
         self.driver.get(url)
         scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
         time.sleep(5)
-        return [scholar_dict]
+        if scholar_dict is not None:
+            
+            return [scholar_dict]
+        else:
+            print('However, no scholars found.')
+            return []
         
     def _search_gsid_helper(self, driver, url, simple=True):
         def get_single_author(element):
@@ -540,6 +555,7 @@ class ScholarGsSearch():
 
         qwq = driver.find_elements(By.CLASS_NAME, "gsc_g_hist_wrp")
         if (len(qwq)==0):
+            print("len(qwq)==0")
             return None
         idx_list = qwq[0].find_elements(By.CLASS_NAME, "gsc_md_hist_b")[0]
         years =  [i.get_attribute('textContent') for i in idx_list.find_elements(By.CLASS_NAME, "gsc_g_t")]
@@ -563,6 +579,7 @@ class ScholarGsSearch():
         Researcher["cites"] = {"years":years, "cites":cites}
         nameList = driver.find_elements(By.ID, "gsc_prf_in")
         if (len(nameList) != 1):
+            print("len(nameList)!=1")
             return None
         Researcher["name"] = nameList[0].text
         infoList = driver.find_elements(By.CLASS_NAME, 'gsc_prf_il')
@@ -572,6 +589,7 @@ class ScholarGsSearch():
             button = driver.find_elements(By.CLASS_NAME, 'gs_btnPD')
             if (len(button) != 1):
                 print("qnq")
+                print("len(button)!=1")
                 return None
             while (button[0].is_enabled()):
                 while (button[0].is_enabled()):
@@ -646,6 +664,7 @@ class ScholarGsSearch():
         scholar_list = self._search_name_helper(self.driver, name_list)
         # return scholar_list
         if len(scholar_list) > 0:
+            print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid')
             if wo_full:
                 return scholar_list
             else:
@@ -708,7 +727,8 @@ class ScholarGsSearch():
                 url = self._gsidsearch.format(scholar['gs_sid'])
                 self.driver.get(url)
                 scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
-                new_scholar_list.append(scholar_dict)
+                if scholar_dict is not None:
+                    new_scholar_list.append(scholar_dict)
                 time.sleep(5)
         return new_scholar_list
 

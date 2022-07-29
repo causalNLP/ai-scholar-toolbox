@@ -1,110 +1,151 @@
 {
     "profile": {
-      "id": "~Yang_Liu3",
+      "id": "~Brandon_Malone1",
       "number": null,
-      "tcdate": 1491017637067,
-      "tmdate": 1622230547219,
+      "tcdate": 1486666606066,
+      "tmdate": 1646083583286,
       "referent": null,
       "packaging": null,
       "invitation": "~/-/profiles",
       "readers": [
         "OpenReview.net",
-        "~Yang_Liu3"
+        "~Brandon_Malone1"
       ],
       "nonreaders": [],
       "signatures": [
-        "~Yang_Liu3"
+        "~Brandon_Malone1"
       ],
       "writers": [
         "OpenReview.net"
       ],
       "content": {
-        "preferredEmail": "yangliu@ucsc.edu",
+        "preferredEmail": "bmmalone@gmail.com",
         "gender": "Male",
-        "homepage": "http://www.yliuu.com",
+        "dblp": "https://dblp.org/pid/28/7214",
         "emails": [
-          "yangl@seas.harvard.edu",
-          "yangliu@ucsc.edu"
+          "brandon.malone@cs.helsinki.fi",
+          "bmmalone@gmail.com",
+          "brandon.malone@age.mpg.de",
+          "brandon.malone@uni-heidelberg.de",
+          "brandon.malone@neclab.eu",
+          "brandon@oncoimmunity.com"
         ],
         "history": [
           {
-            "position": "Assistant Professor",
-            "start": 2018,
+            "position": "Principal Data Scientist",
+            "start": 2022,
             "end": null,
             "institution": {
-              "domain": "ucsc.edu",
-              "name": "University of California, Santa Cruz"
+              "domain": "oncoimmunity.com",
+              "name": "NEC OncoImmunity"
+            }
+          },
+          {
+            "position": "Senior Researcher",
+            "start": 2017,
+            "end": 2021,
+            "institution": {
+              "domain": "neclab.eu",
+              "name": "NEC"
             }
           },
           {
             "position": "Postdoc",
-            "start": 2016,
-            "end": 2018,
+            "start": 2015,
+            "end": 2017,
             "institution": {
-              "domain": "harvard.edu",
-              "name": "Harvard University"
+              "domain": "uni-heidelberg.de",
+              "name": "University of Heidelberg"
             }
           },
           {
-            "position": "PhD student",
-            "start": 2010,
+            "position": "Postdoc",
+            "start": 2014,
             "end": 2015,
             "institution": {
-              "domain": "umich.edu",
-              "name": "University of Michigan"
+              "domain": "age.mpg.de",
+              "name": "MPI for Biology of Ageing"
             }
+          },
+          {
+            "position": "Postdoc",
+            "start": 2012,
+            "end": 2014,
+            "institution": {
+              "domain": "helsinki.fi",
+              "name": "University of Helsinki"
+            }
+          }
+        ],
+        "relations": [
+          {
+            "start": 2008,
+            "end": 2012,
+            "email": "changhe.yuan@qc.cuny.edu",
+            "name": "Changhe Yuan",
+            "relation": "PhD Advisor"
+          }
+        ],
+        "expertise": [
+          {
+            "end": null,
+            "start": 2016,
+            "keywords": [
+              "representation learning"
+            ]
+          },
+          {
+            "end": null,
+            "start": 2014,
+            "keywords": [
+              "Bayesian optimization"
+            ]
+          },
+          {
+            "end": null,
+            "start": 2010,
+            "keywords": [
+              "Bayesian network",
+              "structure learning"
+            ]
+          },
+          {
+            "end": null,
+            "start": 2010,
+            "keywords": [
+              "model selection"
+            ]
           }
         ],
         "names": [
           {
             "preferred": false,
-            "first": "Yang",
             "middle": "",
-            "last": "Liu",
-            "username": "~Yang_Liu3"
-          }
-        ],
-        "relations": [
-          {
-            "name": "Yiling Chen",
-            "email": "yiling@seas.harvard.edu",
-            "relation": "Postdoc Advisor",
-            "start": 2016,
-            "end": 2018,
-            "readers": [
-              "everyone"
-            ]
+            "last": "Malone",
+            "first": "Brandon",
+            "username": "~Brandon_Malone1"
           },
           {
-            "name": "David Parkes",
-            "email": "parkes@eecs.harvard.edu",
-            "relation": "Postdoc Advisor",
-            "start": 2016,
-            "end": 2018,
-            "readers": [
-              "everyone"
-            ]
-          },
-          {
-            "name": "Mingyan Liu",
-            "email": "mingyan@umich.edu",
-            "relation": "PhD Advisor",
-            "start": 2010,
-            "end": 2015,
-            "readers": [
-              "everyone"
-            ]
+            "first": "Brandon",
+            "middle": "M.",
+            "last": "Malone",
+            "username": "~Brandon_M._Malone1",
+            "preferred": false
           }
         ],
         "emailsConfirmed": [
-          "yangl@seas.harvard.edu",
-          "yangliu@ucsc.edu"
+          "brandon.malone@cs.helsinki.fi",
+          "bmmalone@gmail.com",
+          "brandon.malone@age.mpg.de",
+          "brandon.malone@uni-heidelberg.de",
+          "brandon.malone@neclab.eu",
+          "brandon@oncoimmunity.com"
         ]
       },
       "metaContent": {
         "preferredEmail": {
           "signatures": [
-            "~Yang_Liu3"
+            "OpenReview.net"
           ]
         },
         "gender": {
@@ -112,9 +153,9 @@
             "OpenReview.net"
           ]
         },
-        "homepage": {
+        "dblp": {
           "signatures": [
-            "~Yang_Liu3"
+            "~Brandon_M._Malone1"
           ]
         },
         "emails": [
@@ -127,22 +168,81 @@
             "signatures": [
               "OpenReview.net"
             ]
+          },
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          },
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          },
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          },
+          {
+            "signatures": [
+              "~Brandon_Malone1"
+            ]
           }
         ],
         "history": [
           {
             "signatures": [
-              "~Yang_Liu3"
+              "~Brandon_Malone1"
             ]
           },
           {
             "signatures": [
-              "~Yang_Liu3"
+              "~Brandon_Malone1"
             ]
           },
           {
             "signatures": [
-              "~Yang_Liu3"
+              "~Brandon_Malone1"
+            ]
+          },
+          {
+            "signatures": [
+              "~Brandon_Malone1"
+            ]
+          },
+          {
+            "signatures": [
+              "~Brandon_Malone1"
+            ]
+          }
+        ],
+        "relations": [
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          }
+        ],
+        "expertise": [
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          },
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          },
+          {
+            "signatures": [
+              "OpenReview.net"
+            ]
+          },
+          {
+            "signatures": [
+              "OpenReview.net"
             ]
           }
         ],
@@ -151,39 +251,16 @@
             "signatures": [
               "OpenReview.net"
             ]
-          }
-        ],
-        "relations": [
-          {
-            "signatures": [
-              "~Yang_Liu3"
-            ]
           },
           {
             "signatures": [
-              "~Yang_Liu3"
-            ]
-          },
-          {
-            "signatures": [
-              "~Yang_Liu3"
-            ]
-          },
-          {
-            "signatures": [
-              "~Yang_Liu3"
-            ]
-          },
-          {
-            "signatures": [
-              "~Yang_Liu3"
+              "~Brandon_Malone1"
             ]
           }
         ]
       },
       "active": true,
-      "password": true,
-      "tauthor": "OpenReview.net"
+      "password": true
     }
     
 }

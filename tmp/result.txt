@@ -1,15 +1,15 @@
 ['~Prakash_P_Shenoy1', 1
  '~Vibhav_Giridhar_Gogate1', 1
- '~Qiang_Ji1', 0
+ '~Qiang_Ji1', 0, ('should be fixed'), 1
  '~Biwei_Huang1', 1
  '~Alex_Luedtke1', 1
- '~Yang_Liu3', 0
+ '~Yang_Liu3', 0, ('should be fixed'), 1
  '~Aurelie_Lozano1', 1
- '~Brandon_Malone1', 1
- '~Rajesh_Ranganath2', 1
+ '~Brandon_Malone1', 1, 2
+ '~Rajesh_Ranganath2', 1, 3
  '~Peter_Spirtes1', 1
  '~Andrej_Risteski2', 1
- '~Frederick_Eberhardt1', 0
+ '~Frederick_Eberhardt1', 0, ('doesnot have gscholar pages')
  '~Ilya_Shpitser1', 1
  '~Xiangchen_Song1', 1
  '~Nevin_L_Zhang1', 1
@@ -17,29 +17,29 @@
  '~Lu_Cheng2', 1
  '~Yue_Zhang7', 1
  '~Badong_Chen1', 1
- '~Thomas_Krak1', 0
- '~William_Herlands1', 0
- '~Linbo_Liu1', 0
+ '~Thomas_Krak1', 0, ('doesnot have gscholar pages')
+ '~William_Herlands1', 0, ('doesnot have gscholar pages')
+ '~Linbo_Liu1', 0, ('doesnot have gscholar pages', 'only one by name')
  '~Yuliya_Shapovalova1', 1
- '~Aurélie_Beynier2', 0
- '~Bryan_Andrews1', 0
+ '~Aurélie_Beynier2', 0, ('doesnot have gscholar pages')
+ '~Bryan_Andrews1', 0, ('doesnot have gscholar pages')
  '~Jussi_Rintanen1', 1
- '~Benito_van_der_Zander1', 0
- '~Zied_Eloudi1', 0
+ '~Benito_van_der_Zander1', 0, ('wrong email suffix', 'only one by name')
+ '~Zied_Eloudi1', 0, ('doesnot have gscholar pages')
  '~David_Strieder1', 1
- '~Britta_Velten1', 0
- '~Zhou_Dawei1',
- '~Jingfeng_Zhang1',
- '~Phillip_Bredahl_Mogensen1',
- '~Panayiotis_V._Benos1',
- '~Leon_Van_der_Torre2',
- '~Christine_Sinoquet1',
- '~Armen_Aghasaryan1',
- '~Rong_Zhu4',
- '~Khaled_S._Refaat1',
- '~Joseph_Ramsey1',
- '~Feng_Xie1',
- '~Shuai_Li2',
+ '~Britta_Velten1', 0, ('wrong email suffix', 'only one by name')
+ '~Zhou_Dawei1', 1
+ '~Jingfeng_Zhang1', 1
+ '~Phillip_Bredahl_Mogensen1', 1
+ '~Panayiotis_V._Benos1', 0, ('wrong email suffix', 'only one by name')
+ '~Leon_Van_der_Torre2', 1
+ '~Christine_Sinoquet1', 1
+ '~Armen_Aghasaryan1', 0, ('wrong email suffix', 'only one by name')
+ '~Rong_Zhu4', 0, ('doesnot have gscholar pages', 'in 78k dataset but wrong name')
+ '~Khaled_S._Refaat1', 0, ('wrong email suffix')
+ '~Joseph_Ramsey1', 0, ('wrong email suffix')
+ '~Feng_Xie1', 0, ('doesnot have gscholar pages')
+ '~Shuai_Li2',, 0, ('should be fixed')
  '~Subhojyoti_Mukherjee1',
  '~Jin_Sima1',
  '~Liu_Ziyin1',

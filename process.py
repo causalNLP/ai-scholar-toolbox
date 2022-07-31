@@ -298,14 +298,16 @@ class ScholarSearch():
         if len(final_idx) < top_n:
             domain_tag_rank = []
             relation_rank = []
-            for rank_idx in rank:
+            for rank_idx in sorted(rank.keys()):
+                # print(rank_idx)
                 domain_tag_rank.append(rank[rank_idx][1])
                 relation_rank.append(rank[rank_idx][2])
+            # print(domain_tag_rank, relation_rank)
             domain_tag_idxes = np.argsort(domain_tag_rank)[::-1]
             relation_idxes = np.argsort(relation_rank)[::-1]
             for idx in relation_idxes:
-                # if relation_rank[idx] == 0:
-                #     break
+                if relation_rank[idx] == 0:
+                    break
                 if len(final_idx) < top_n:
                     if idx not in final_idx:
                         final_idx.append(idx)
@@ -319,6 +321,12 @@ class ScholarSearch():
                         final_idx.append(idx)
                 else:
                     break
+            if len(final_idx) == 0 and len(rank.keys()) > 0:
+                    for rank_idx in sorted(rank.keys()):
+                        if len(final_idx) >= top_n:
+                            break
+                        else:
+                            final_idx.append(rank_idx)
         # print(resp)
         # print(or_keyword_list)
         # print(rank)
@@ -343,7 +351,10 @@ class ScholarSearch():
                     print(f'[Info] Found a scholar using query dict gs_sid')
                     self.cnt_find_gs_crawl += 1
                     self.find_list.append(query_dict)
-                    return self.search_gs.search_gsid(gs_sid, simple=simple)
+                    resp = self.search_gs.search_gsid(gs_sid, simple=simple)
+                    if len(resp) > 0:
+                        return resp
+                    
         
         # search_name
         return self.search_name(query_dict['profile']['id'], simple=simple, top_n=top_n, from_dict=True, query_dict=query_dict, wo_full=True)
@@ -655,7 +666,7 @@ class ScholarGsSearch():
         
         # second try (name, email_suffix)
         if 'email_suffix' in keyword_list:
-            url_fragment_new = url_fragment + keyword_list['email_suffix'] + ' '
+            url_fragment_new = url_fragment + keyword_list['email_suffix'] # + ' '
         # print(url_fragment_new)
         url = self._authsearch.format(url_fragment_new)
         # print(url)
@@ -673,7 +684,7 @@ class ScholarGsSearch():
     
         # third try (name, position)
         if 'position' in keyword_list:
-            url_fragment_new = url_fragment + keyword_list['position'] + ' '
+            url_fragment_new = url_fragment + keyword_list['position'] # + ' '
         url = self._authsearch.format(url_fragment_new)
         self.driver.get(url)
         time.sleep(5)
@@ -688,7 +699,7 @@ class ScholarGsSearch():
 
         # fourth try (name, organization)
         if 'organization' in keyword_list:
-            url_fragment_new = url_fragment + keyword_list['organization'] + ' '
+            url_fragment_new = url_fragment + keyword_list['organization'] # + ' '
         url = self._authsearch.format(url_fragment_new)
         self.driver.get(url)
         time.sleep(5)

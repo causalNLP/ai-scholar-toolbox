@@ -10,13 +10,13 @@ from ScholarSearch import generate_or_keyword_list
 
 class ScholarGsSearch():
     """Class that handling searching on Google Scholar webpage using REST GET API."""
-    def __init__(self):
+    def __init__(self, driver_path):
         self._authsearch = 'https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors={0}'
         self._gsidsearch = 'https://scholar.google.com/citations?hl=en&user={0}'
         self.print_true = False
-        self.setup_webdriver()
+        self.setup_webdriver(driver_path)
 
-    def setup_webdriver(self):
+    def setup_webdriver(self, driver_path):
         """Setup the webdriver object."""
         options = ChromiumOptions()
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -25,7 +25,7 @@ class ScholarGsSearch():
         options.add_argument('--no-sandbox')
         options.add_argument('--disable-dev-shm-usage')
 
-        self.driver = webdriver.Chrome('../chromedriver', options=options)
+        self.driver = webdriver.Chrome(driver_path, options=options)
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         })
@@ -201,7 +201,8 @@ class ScholarGsSearch():
             if len(scholar_list) > 0:
                 if self.print_true:
                     print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 1.')
-                return self._search_name_list_expand(scholar_list, simple=simple)
+                # return self._search_name_list_expand(scholar_list, simple=simple)
+                return scholar_list
         
             # third try (name, position)
             if 'position' in keyword_list:
@@ -214,7 +215,8 @@ class ScholarGsSearch():
             if len(scholar_list) > 0:
                 if self.print_true:
                     print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 2.')
-                return self._search_name_list_expand(scholar_list, simple=simple)
+                # return self._search_name_list_expand(scholar_list, simple=simple)
+                return scholar_list
 
             # fourth try (name, organization)
             if 'organization' in keyword_list:
@@ -227,7 +229,8 @@ class ScholarGsSearch():
             if len(scholar_list) > 0:
                 if self.print_true:
                     print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 3.')
-                return self._search_name_list_expand(scholar_list, simple=simple)
+                # return self._search_name_list_expand(scholar_list, simple=simple)
+                return scholar_list
 
         # finally, only search (name: firstname and lastname). If only one response returns, mark it as candidate
         url = self._authsearch.format(url_fragment)
@@ -237,7 +240,8 @@ class ScholarGsSearch():
         if len(scholar_list) > 0 and len(scholar_list) <= top_n:
             if self.print_true:
                 print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 4.')
-            return self._search_name_list_expand(scholar_list, simple=simple)
+            # return self._search_name_list_expand(scholar_list, simple=simple)
+            return scholar_list
         
         return []
 

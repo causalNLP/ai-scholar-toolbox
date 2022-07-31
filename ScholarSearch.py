@@ -18,14 +18,15 @@ from ScholarGsSearch import ScholarGsSearch
 class ScholarSearch():
     """A class that handles searching over Google Scholar profiles and the 78k AI scholar dataset."""
     def __init__(self):
+        # attributes
+        self.similarity_ratio = 0.8
+        self.driver_path = '../chromedriver'
+    
+    def setup(self):
         # self.get_profiles(['review_data/area_chair_id_to_profile.json', 'review_data/reviewer_id_to_profile.json'])
         # self.get_profiles(None)
         self.search_78k = Scholar78kSearch()
-        self.search_gs = ScholarGsSearch()
-        self.find_list = []
-
-        # attributes
-        self.similarity_ratio = 0.8
+        self.search_gs = ScholarGsSearch(self.driver_path)
 
     def reset(self):
         pass
@@ -54,7 +55,7 @@ class ScholarSearch():
         self,
         query: Union[str, dict],
         field: List[str] = None,
-        simple: bool = None,
+        simple: bool = False,
         top_n: int = 3,
         print_true: bool = True) -> List[dict]:
         """Get up to <top_n> relevant candidate scholars by searching over Google Scholar profiles and the 78k AI scholar dataset.
@@ -97,8 +98,24 @@ class ScholarSearch():
                 print(f'[Info] In total {scholar_cnt} scholars are found:')
             resp_str = json.dumps(resp, indent=2)
             print(resp_str)
-
-        return resp   
+        
+        # select specific features
+        if field is not None:
+            resp_final = []
+            for resp_item in resp:
+                resp_dict = {}
+                for field_item in field:
+                    if field_item not in resp_item:
+                        raise KeyError(f'The key {field_item} is not in the response dictionary')
+                    
+                    resp_dict[field_item] = resp[field_item]
+                    resp_dict['gs_sid'] = resp['gs_sid']
+                    resp_dict['url'] = resp['url']
+                    resp_dict['citation_table'] = resp['citation_table']
+                resp_final.append(resp_dict)
+            return resp_final
+        else:
+            return resp
     
     def search_name(self, name: str, simple: bool = True, top_n: int = 3, from_dict: bool = False, query_dict: dict = None) -> List[dict]:
         """Search gs profile given name or OpenReview id.
@@ -150,7 +167,7 @@ class ScholarSearch():
                 # or_resp = self.get_or_scholars(or_name)
                 # TODO: resp_gs for only searching name is not implemented
                 # resp = self.select_final_cands(resp, or_resp, top_n, simple=simple)
-                resp - self.search_78k.search_name(name)
+                resp = self.search_78k.search_name(name)
                 resp_gs = self.search_gs.search_name(name, query_dict=None, top_n=top_n, simple=simple)
                 resp = self.select_final_cands(resp, top_n, query_dict=None, resp_gs_prop={'resp_gs': resp_gs})
         return resp
@@ -398,7 +415,6 @@ class ScholarSearch():
                     return self.search_78k._deal_with_simple(name_df)
                 else:
                     print(f'[Info] Found a scholar using query dict gs_sid')
-                    self.find_list.append(query_dict)
                     resp = self.search_gs.search_gsid(gs_sid, simple=simple)
                     if len(resp) > 0:
                         return resp

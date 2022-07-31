@@ -1,7 +1,6 @@
 # ai-scholar-toolbox
 
-
-## Statistics Summary
+The python package provides an efficient way to get statistics of a scholar on Google Scholar given academic information of the scholar.
 
 ## Environment
 Create an environment with the following commands:
@@ -12,8 +11,20 @@ pip install -r requirements.txt
 ```
 
 ## Download Browser Binary and Browser Driver
+By default, our package uses Chromium binary file. Please take care that there may be compatible issues regarding the binary file and the browser driver.
 
+Download:
+- [Download Chrome browser driver](https://sites.google.com/a/chromium.org/chromedriver/downloads)
 
+Install:
+- Linux
+  
+  ```bash
+  sudo apt update
+  sudo apt upgrade
+  wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+  sudo apt install ./google-chrome-stable_current_amd64.deb
+  ```
 ## Get Started in ai-scholar-toolbox
 
 1. Instantiate a `ScholarSearch` object. This will download 78k dataset to the local machine automatically.
@@ -26,6 +37,10 @@ pip install -r requirements.txt
    ```python
    # set the similarity ratio of comparing two strings when searching on Google Scholar webpage. If not given, default is 0.8.
    scholar_search.similarity_ratio = 0.8
+   # set the path of browser driver.
+   scholar_search.driver_path = '../chromedriver'
+   # required: setup
+   scholar_search.setup()
    ```
 
    Optional: In case that you want to get responses of a list of scholars, the class method `get_profiles()` is implemented for you to load (could be multiple) json data files.
@@ -112,22 +127,47 @@ pip install -r requirements.txt
    Then, you can pass the dictionary to the method `get_scholar()` to get possible candidates.
    ```python
    # query: python dictionary that you just generated.
-   # simple: 
    resp = scholar_search.get_scholar(query=scholar_info_dict, simple=True, top_n=3, print_true=True)
    resp
    ```
 
    Alternatively, if you just want to input the name of a scholar and get possible google scholar candidates, you can pass the name as a string directly to the function as the following:
    ```python
-
+   # query: python str, the name of the scholar.
+   resp = scholar_search.get_scholar(query='Zhijing Jin', simple=True, top_n=3, print_true=True)
+   resp
    ```
 
-## FAQ
+## Search Algorithms
+The algorithm can be explained as follows if the input query is a python dictionary:
+```python
+def get_candidates(openreview_dict, top_n_related):
+  if gs_sid in openreview_dict:
+    if gs_sid in 78k_scholar:
+      return dict(78k_scholar.loc[78k_scholar[‘gs_sid’]==gs_sid])
+    else:
+      response = search_directly_on_google_scholar_by_gssid(gs_sid)
+      return response
+  else:
+      name, email_suffix, position, organization, relations = extract_name_from_openreview_dict(openreview_dict)
+      response_78k = search_scholar_on_78k(name) 
+      response_gs = search_scholar_on_google_scholar(name, email_suffix, position, organization, relations)
+      response = select_final_candidates(response_78k, response_gs, top_n_related = top_n_related)
+      return Response
 
+```
+
+## Statistics Summary
+Our 78k dataset has 78,066 AI scholars in total. Please check our [78k AI scholar dataset](https://github.com/causalNLP) for more details.
+
+Given all the chairs and reviewers in OpenReview (664 in total), our package achieves 93.02% precision, 85.11% recall, and 88.89% F1-score on a random subset of 50 scholars that don't have `gs_sid` included in the input dict.
+
+## FAQ
+**TODO: add content**
 
 ## Support
-If you have any questions, bug reports, or feature requests regarding either the codebase or the models released in the projects section, please don't hesitate to post on our [Github Issues page](https://github.com/facebookresearch/metaseq/issues).
+If you have any questions, bug reports, or feature requests regarding either the codebase or the models released in the projects section, please don't hesitate to post on our [Github Issues page](https://github.com/causalNLP/ai-scholar-toolbox/issues).
 
 ## License
 The package is licensed under the MIT license.
-`todo: check licenses`
+**TODO: check licenses**

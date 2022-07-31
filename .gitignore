@@ -1,3 +1,4 @@
 source/*
-# review_data/*
+review_data/*
 __pycache__/*
+tmp/*

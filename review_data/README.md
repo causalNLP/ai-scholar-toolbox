@@ -1,5 +1,3 @@
-# UAI 2022 Review data
-
 ## Dataset description
 
 ### `{reviewer/area_chair}_id_to_profile.json`

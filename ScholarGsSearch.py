@@ -3,17 +3,21 @@ import time
 from typing import Union
 from selenium import webdriver
 from selenium.webdriver.chrome.options import ChromiumOptions
+from selenium.webdriver.chromium.webdriver import ChromiumDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.errorhandler import NoSuchElementException
 from ScholarSearch import generate_or_keyword_list
 
 class ScholarGsSearch():
+    """Class that handling searching on Google Scholar webpage using REST GET API."""
     def __init__(self):
-        self.setup()
-
-    def setup(self):
         self._authsearch = 'https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors={0}'
         self._gsidsearch = 'https://scholar.google.com/citations?hl=en&user={0}'
+        self.print_true = False
+        self.setup_webdriver()
+
+    def setup_webdriver(self):
+        """Setup the webdriver object."""
         options = ChromiumOptions()
         options.add_experimental_option("excludeSwitches", ["enable-automation"])
         options.add_experimental_option('useAutomationExtension', False)
@@ -31,31 +35,21 @@ class ScholarGsSearch():
         new_name[-1] = re.sub(r'[0-9]+', '', new_name[-1])
         new_name = ' '.join(new_name)
         return new_name
-    
-    def get_scholar(self, key, query_dict):
-        url_item = []
-        name = self.change_name(key)
-        if 'gscholar' in query_dict['profile']['content'] and 'user=' in query_dict['profile']['content']['gscholar']:
-            tmp_gs_sid = query_dict['profile']['content']['gscholar'].split('user=', 1)[1]
-            if len(tmp_gs_sid) >= 12:
-                gs_sid = tmp_gs_sid[:12]
-                return self.search_gsid(gs_sid)
-        position, school = None, None
-        if 'position' in query_dict['profile']['content']['history'][0]:
-            position = query_dict['profile']['content']['history'][0]['position']
-        if ('institution' in query_dict['profile']['content']['history'][0] and 
-            'name' in query_dict['profile']['content']['history'][0]['institution']):
-            school = query_dict['profile']['content']['history'][0]['institution']['name']
 
-
-    def search_gsid(self, gs_sid, simple=True):
-        url = self._gsidsearch.format(gs_sid)
-        # resp = requests.get(url)
-        # if not resp.ok:
-        #     return {}
-        # resp_str = resp.content.decode('utf-8', errors='ignore')
-        # soup = BeautifulSoup(resp_str, 'html.parser')
+    def search_gsid(self, gs_sid: str, simple: bool = True):
+        """Search scholar on Google Scholar based given gs_sid.
         
+        Parameters
+        ----------
+        gs_sid : google scholar sid
+        simple : whether return simple information without paper list.
+
+        Returns
+        -------
+        scholar_dict_list : a list of dicts of responses.
+        
+        """
+        url = self._gsidsearch.format(gs_sid)
         self.driver.get(url)
         scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
         time.sleep(5)
@@ -63,10 +57,13 @@ class ScholarGsSearch():
             
             return [scholar_dict]
         else:
-            print('However, no scholars found.')
+            if self.print_true:
+                print('[Info] No scholars found given gs_sid in search_gs.')
             return []
         
-    def _search_gsid_helper(self, driver, url, simple=True):
+    def _search_gsid_helper(self, driver: ChromiumDriver, url: str, simple: bool = True):
+        """Helper function for search_gsid."""
+
         def get_single_author(element):
             li=[]
             li.append(element.find_elements(By.TAG_NAME, "a")[0].get_attribute('href'))
@@ -75,11 +72,12 @@ class ScholarGsSearch():
                 li.append(i.get_attribute('textContent'))
             return li
 
-        qwq = driver.find_elements(By.CLASS_NAME, "gsc_g_hist_wrp")
-        if (len(qwq)==0):
-            print("len(qwq)==0")
+        html_first_class = driver.find_elements(By.CLASS_NAME, "gsc_g_hist_wrp")
+        if (len(html_first_class)==0):
+            if self.print_true:
+                print("[Info] len(html_first_class)==0")
             return None
-        idx_list = qwq[0].find_elements(By.CLASS_NAME, "gsc_md_hist_b")[0]
+        idx_list = html_first_class[0].find_elements(By.CLASS_NAME, "gsc_md_hist_b")[0]
         years =  [i.get_attribute('textContent') for i in idx_list.find_elements(By.CLASS_NAME, "gsc_g_t")]
         cites =  [i.get_attribute('innerHTML') for i in idx_list.find_elements(By.CLASS_NAME, "gsc_g_al")]
         rsb = driver.find_elements(By.CLASS_NAME, "gsc_rsb")[0]
@@ -102,7 +100,8 @@ class ScholarGsSearch():
         Researcher["cites"] = {"years":years, "cites":cites}
         nameList = driver.find_elements(By.ID, "gsc_prf_in")
         if (len(nameList) != 1):
-            print("len(nameList)!=1")
+            if self.print_true:
+                print("len(nameList)!=1")
             return None
         Researcher["name"] = nameList[0].text
         infoList = driver.find_elements(By.CLASS_NAME, 'gsc_prf_il')
@@ -111,8 +110,8 @@ class ScholarGsSearch():
         if not simple:
             button = driver.find_elements(By.CLASS_NAME, 'gs_btnPD')
             if (len(button) != 1):
-                print("qnq")
-                print("len(button)!=1")
+                if self.print_true:
+                    print("len(button)!=1")
                 return None
             while (button[0].is_enabled()):
                 while (button[0].is_enabled()):
@@ -146,7 +145,21 @@ class ScholarGsSearch():
         Researcher['extra_co_authors'] = [generate_single_coauthor(i) for i in extra_coauthors]
         return Researcher
 
-    def search_name(self, name: Union[str, list], query_dict=None, wo_full=True, top_n=3, simple=True):
+    def search_name(self, name: Union[str, list], query_dict: dict = None, top_n=3, simple=True):
+        """Search on Google Scholar webpage given name.
+        
+        Parameters
+        ----------
+        name : name of the scholar.
+        query_dict : a dict containing information of the scholar.
+        top_n : select <top_n> candidates.
+        simple : whether return simple information without paper list.
+
+        Returns
+        -------
+        resp : list of candidate scholars, empty if no candidates are found.
+
+        """
         if type(name) is list:
             # current case
             name_list = [name[0], name[-1]]
@@ -155,73 +168,65 @@ class ScholarGsSearch():
             name_list = name.split(' ')
         else:
             raise TypeError('Argument "name" passed to ScholarGsSearch.search_name has the wrong type.')
-        # first try (name, email_suffix, position, organization) as url
         url_fragment = f'{name} '
-        keyword_list = generate_or_keyword_list(None, query_dict)[0]
-        url_fragment_new = url_fragment
-        # if 'email_suffix' in keyword_list:
-        #     url_fragment_new = url_fragment_new + keyword_list['email_suffix'] + ' '
-        # if 'position' in keyword_list:
-        #     url_fragment_new = url_fragment_new + keyword_list['position'] + ' '
-        # if 'organization' in keyword_list:
-        #     url_fragment_new = url_fragment_new + keyword_list['organization'] + ' '
+        if query_dict is not None:
+            # first try (name, email_suffix, position, organization) as url
+            keyword_list = generate_or_keyword_list(None, query_dict)[0]
+            url_fragment_new = url_fragment
+            # if 'email_suffix' in keyword_list:
+            #     url_fragment_new = url_fragment_new + keyword_list['email_suffix'] + ' '
+            # if 'position' in keyword_list:
+            #     url_fragment_new = url_fragment_new + keyword_list['position'] + ' '
+            # if 'organization' in keyword_list:
+            #     url_fragment_new = url_fragment_new + keyword_list['organization'] + ' '
 
-        # url = self._authsearch.format(url_fragment_new)
-        # self.driver.get(url)
-        # time.sleep(5)
-        # scholar_list = self._search_name_helper(self.driver, name_list)
-        # if len(scholar_list) > 0:
-        #     if wo_full:
-        #         return scholar_list
-        #     else:
-        #         return self._search_name_list_expand(scholar_list, simple=simple)
+            # url = self._authsearch.format(url_fragment_new)
+            # self.driver.get(url)
+            # time.sleep(5)
+            # scholar_list = self._search_name_helper(self.driver, name_list)
+            # if len(scholar_list) > 0:
+            #     if wo_full:
+            #         return scholar_list
+            #     else:
+            #         return self._search_name_list_expand(scholar_list, simple=simple)
+            
+            # second try (name, email_suffix)
+            if 'email_suffix' in keyword_list:
+                url_fragment_new = url_fragment + keyword_list['email_suffix'] # + ' '
+            url = self._authsearch.format(url_fragment_new)
+            self.driver.get(url)
+            time.sleep(5)
+            scholar_list = self._search_name_helper(self.driver, name_list)
+            # return scholar_list
+            if len(scholar_list) > 0:
+                if self.print_true:
+                    print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 1.')
+                return self._search_name_list_expand(scholar_list, simple=simple)
         
-        # second try (name, email_suffix)
-        if 'email_suffix' in keyword_list:
-            url_fragment_new = url_fragment + keyword_list['email_suffix'] # + ' '
-        # print(url_fragment_new)
-        url = self._authsearch.format(url_fragment_new)
-        # print(url)
-        # print(keyword_list)
-        self.driver.get(url)
-        time.sleep(5)
-        scholar_list = self._search_name_helper(self.driver, name_list)
-        # return scholar_list
-        if len(scholar_list) > 0:
-            print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 1')
-            if wo_full:
-                return scholar_list
-            else:
-                return self._search_name_list_expand(scholar_list, simple=simple)
-    
-        # third try (name, position)
-        if 'position' in keyword_list:
-            url_fragment_new = url_fragment + keyword_list['position'] # + ' '
-        url = self._authsearch.format(url_fragment_new)
-        self.driver.get(url)
-        time.sleep(5)
-        scholar_list = self._search_name_helper(self.driver, name_list)
-        # return scholar_list
-        if len(scholar_list) > 0:
-            print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 2')
-            if wo_full:
-                return scholar_list
-            else:
+            # third try (name, position)
+            if 'position' in keyword_list:
+                url_fragment_new = url_fragment + keyword_list['position'] # + ' '
+            url = self._authsearch.format(url_fragment_new)
+            self.driver.get(url)
+            time.sleep(5)
+            scholar_list = self._search_name_helper(self.driver, name_list)
+            # return scholar_list
+            if len(scholar_list) > 0:
+                if self.print_true:
+                    print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 2.')
                 return self._search_name_list_expand(scholar_list, simple=simple)
 
-        # fourth try (name, organization)
-        if 'organization' in keyword_list:
-            url_fragment_new = url_fragment + keyword_list['organization'] # + ' '
-        url = self._authsearch.format(url_fragment_new)
-        self.driver.get(url)
-        time.sleep(5)
-        scholar_list = self._search_name_helper(self.driver, name_list)
-        # return scholar_list
-        if len(scholar_list) > 0:
-            print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 3')
-            if wo_full:
-                return scholar_list
-            else:
+            # fourth try (name, organization)
+            if 'organization' in keyword_list:
+                url_fragment_new = url_fragment + keyword_list['organization'] # + ' '
+            url = self._authsearch.format(url_fragment_new)
+            self.driver.get(url)
+            time.sleep(5)
+            scholar_list = self._search_name_helper(self.driver, name_list)
+            # return scholar_list
+            if len(scholar_list) > 0:
+                if self.print_true:
+                    print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 3.')
                 return self._search_name_list_expand(scholar_list, simple=simple)
 
         # finally, only search (name: firstname and lastname). If only one response returns, mark it as candidate
@@ -230,15 +235,14 @@ class ScholarGsSearch():
         time.sleep(5)
         scholar_list = self._search_name_helper(self.driver, name_list)
         if len(scholar_list) > 0 and len(scholar_list) <= top_n:
-            print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 4')
-            if wo_full:
-                return scholar_list
-            else:
-                return self._search_name_list_expand(scholar_list, simple=simple)
+            if self.print_true:
+                print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 4.')
+            return self._search_name_list_expand(scholar_list, simple=simple)
         
         return []
 
     def _search_name_helper(self, driver, name_list):
+        """Helper function of <self.search_name()>."""
         # iterate over searched list, find dicts that contains the name (including)
         useful_info_list = driver.find_elements(By.CLASS_NAME, 'gs_ai_t')
         useful_info_ext_list = []
@@ -269,10 +273,7 @@ class ScholarGsSearch():
                     tmp_gs_sid = url.split('user=', 1)[1]
                     if len(tmp_gs_sid) >= 12:
                         gs_sid = tmp_gs_sid[:12]
-                # print(email_str)
-                # return [scholar_webdriver]
-                
-                # print(type(email_str))
+
                 if email_str is not None and email_str != '':
                     match = re.search(r'[\w-]+\.[\w.-]+', email_str)
                     email_str = match.group(0)
@@ -290,6 +291,7 @@ class ScholarGsSearch():
         return useful_info_ext_list
         
     def _search_name_list_expand(self, scholar_list, simple=True):
+        """Expand the name_list to full_name_list."""
         new_scholar_list = []
         for scholar in scholar_list:
             if 'gs_sid' in scholar:

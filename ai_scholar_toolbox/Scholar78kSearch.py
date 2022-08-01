@@ -24,12 +24,12 @@ class Scholar78kSearch():
             import gdown
             if not os.path.exists('source'):
                 os.mkdir('source')
-            if not os.path.exists(f'../source/{path_name}'):
+            if not os.path.exists(f'source/{path_name}'):
                 gdown.download(
                     'https://self.drive.google.com/uc?id=1NTvn_HiGX3Lr0FtTw5ot3UxcdeNLsv7h',
-                    f'../source/{path_name}'
+                    f'source/{path_name}'
                 )
-            self.df = pd.DataFrame.from_records(np.load(f'../source/{path_name}', allow_pickle=True))
+            self.df = pd.DataFrame.from_records(np.load(f'source/{path_name}', allow_pickle=True))
         else:
             raise NotImplementedError
     

@@ -11,8 +11,8 @@ import sys
 import requests
 from difflib import SequenceMatcher
 from bs4 import BeautifulSoup
-from Scholar78kSearch import Scholar78kSearch
-from ScholarGsSearch import ScholarGsSearch
+from .Scholar78kSearch import Scholar78kSearch
+from .ScholarGsSearch import ScholarGsSearch
 
 
 class ScholarSearch():

@@ -1,3 +1,3 @@
-from ScholarSearch import ScholarSearch, generate_or_keyword_list, get_str_similarity
-from Scholar78kSearch import Scholar78kSearch
-from ScholarGsSearch import ScholarGsSearch
+from src.ScholarSearch import ScholarSearch, generate_or_keyword_list, get_str_similarity
+from src.Scholar78kSearch import Scholar78kSearch
+from src.ScholarGsSearch import ScholarGsSearch

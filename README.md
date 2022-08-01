@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ```
 
 ## Download Browser Binary and Browser Driver
-By default, our package uses Chromium binary file. Please take care that there may be compatible issues regarding the binary file and the browser driver. Also, if your OS is not linux based or you install the browser in a directory other than default directory, please refer to [Selenium Chrome requirements](https://github.com/SeleniumHQ/selenium/wiki/ChromeDriver/01fde32d0ed245141e24151f83b7c2db31d596a4#requirements) when instantiating the browser driver.
+By default, our package uses Chromium binary file. Please take care the compatibility between the binary file and the browser driver. Also, if your OS is not linux based or you install the browser in a directory other than default directory, please refer to [Selenium Chrome requirements](https://github.com/SeleniumHQ/selenium/wiki/ChromeDriver/01fde32d0ed245141e24151f83b7c2db31d596a4#requirements) when instantiating the browser driver.
 
 Download:
 - [Download Chrome browser driver](https://sites.google.com/a/chromium.org/chromedriver/downloads)
@@ -38,7 +38,7 @@ Install:
    # set the similarity ratio of comparing two strings when searching on Google Scholar webpage. If not given, default is 0.8.
    scholar_search.similarity_ratio = 0.8
    # set the path of browser driver.
-   scholar_search.driver_path = '../chromedriver'
+   scholar_search.driver_path = '../../chromedriver'
    # required: setup
    scholar_search.setup()
    ```
@@ -46,7 +46,7 @@ Install:
    Optional: In case that you want to get responses of a list of scholars, the class method `get_profiles()` is implemented for you to load (could be multiple) json data files.
    ```python
    # optional
-   scholar_search.get_profiles(['review_data/area_chair_id_to_profile.json', 'review_data/reviewer_id_to_profile.json'])
+   scholar_search.get_profiles(['../review_data/area_chair_id_to_profile.json', '../review_data/reviewer_id_to_profile.json'])
    ```
 
 3. Search candidate scholars by matching a specific query:

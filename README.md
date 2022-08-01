@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ```
 
 ## Download Browser Binary and Browser Driver
-By default, our package uses Chromium binary file. Please take care that there may be compatible issues regarding the binary file and the browser driver.
+By default, our package uses Chromium binary file. Please take care that there may be compatible issues regarding the binary file and the browser driver. Also, if your OS is not linux based or you install the browser in a directory other than default directory, please refer to [Selenium Chrome requirements](https://github.com/SeleniumHQ/selenium/wiki/ChromeDriver/01fde32d0ed245141e24151f83b7c2db31d596a4#requirements) when instantiating the browser driver.
 
 Download:
 - [Download Chrome browser driver](https://sites.google.com/a/chromium.org/chromedriver/downloads)

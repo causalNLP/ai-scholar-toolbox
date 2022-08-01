@@ -55,7 +55,7 @@ class ScholarSearch():
         self,
         query: Union[str, dict],
         field: List[str] = None,
-        simple: bool = False,
+        simple: bool = True,
         top_n: int = 3,
         print_true: bool = True) -> List[dict]:
         """Get up to <top_n> relevant candidate scholars by searching over Google Scholar profiles and the 78k AI scholar dataset.
@@ -90,14 +90,6 @@ class ScholarSearch():
         else:
             raise TypeError(f'[Error] The argument "query" must be str or dict, not {type(query)}.')
 
-        if print_true:
-            scholar_cnt = len(resp)
-            if scholar_cnt == 1:
-                print(f'[Info] In total 1 scholar is found:')
-            else:
-                print(f'[Info] In total {scholar_cnt} scholars are found:')
-            resp_str = json.dumps(resp, indent=2)
-            print(resp_str)
         
         # select specific features
         if field is not None:
@@ -108,13 +100,29 @@ class ScholarSearch():
                     if field_item not in resp_item:
                         raise KeyError(f'The key {field_item} is not in the response dictionary')
                     
-                    resp_dict[field_item] = resp[field_item]
-                    resp_dict['gs_sid'] = resp['gs_sid']
-                    resp_dict['url'] = resp['url']
-                    resp_dict['citation_table'] = resp['citation_table']
+                    resp_dict[field_item] = resp_item[field_item]
+                resp_dict['gs_sid'] = resp_item['gs_sid']
+                resp_dict['url'] = resp_item['url']
+                resp_dict['citation_table'] = resp_item['citation_table']
                 resp_final.append(resp_dict)
+            if print_true:
+                scholar_cnt = len(resp_final)
+                if scholar_cnt == 1:
+                    print(f'[Info] In total 1 scholar is found:')
+                else:
+                    print(f'[Info] In total {scholar_cnt} scholars are found:')
+                resp_str = json.dumps(resp_final, indent=2)
+                print(resp_str)
             return resp_final
         else:
+            if print_true:
+                scholar_cnt = len(resp)
+                if scholar_cnt == 1:
+                    print(f'[Info] In total 1 scholar is found:')
+                else:
+                    print(f'[Info] In total {scholar_cnt} scholars are found:')
+                resp_str = json.dumps(resp, indent=2)
+                print(resp_str)
             return resp
     
     def search_name(self, name: str, simple: bool = True, top_n: int = 3, from_dict: bool = False, query_dict: dict = None) -> List[dict]:
@@ -284,7 +292,7 @@ class ScholarSearch():
                         resp.append(resp_gs_full_item)
         
         if query_dict is None:
-            return resp
+            return resp[:top_n]
 
         # calculate rankings
         rank = {}

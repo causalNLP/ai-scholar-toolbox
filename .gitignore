@@ -2,3 +2,5 @@ source/*
 review_data/*
 __pycache__/*
 tmp/*
+openreview.ipynb
+openreviewdirect.ipynb

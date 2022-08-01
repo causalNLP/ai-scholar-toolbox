@@ -6,7 +6,7 @@ from selenium.webdriver.chrome.options import ChromiumOptions
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.errorhandler import NoSuchElementException
-from ScholarSearch import generate_or_keyword_list
+
 
 class ScholarGsSearch():
     """Class that handling searching on Google Scholar webpage using REST GET API."""
@@ -160,6 +160,7 @@ class ScholarGsSearch():
         resp : list of candidate scholars, empty if no candidates are found.
 
         """
+        from ScholarSearch import generate_or_keyword_list
         if type(name) is list:
             # current case
             name_list = [name[0], name[-1]]
@@ -171,7 +172,7 @@ class ScholarGsSearch():
         url_fragment = f'{name} '
         if query_dict is not None:
             # first try (name, email_suffix, position, organization) as url
-            keyword_list = generate_or_keyword_list(None, query_dict)[0]
+            keyword_list = generate_or_keyword_list(query_dict)[0]
             url_fragment_new = url_fragment
             # if 'email_suffix' in keyword_list:
             #     url_fragment_new = url_fragment_new + keyword_list['email_suffix'] + ' '

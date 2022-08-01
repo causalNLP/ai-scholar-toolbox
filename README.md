@@ -2,12 +2,9 @@
 
 The python package provides an efficient way to get statistics of a scholar on Google Scholar given academic information of the scholar.
 
-## Environment
-Create an environment with the following commands:
+## Install package
 ```bash
-virtualenv venv -p python3
-source venv/bin/activate
-pip install -r requirements.txt
+pip install ai-scholar-toolbox
 ```
 
 ## Download Browser Binary and Browser Driver

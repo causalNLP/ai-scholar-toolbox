@@ -7,15 +7,11 @@ from selenium.webdriver.chromium.webdriver import ChromiumDriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.errorhandler import NoSuchElementException
 
-
-class ScholarGsSearch():
-    """Class that handling searching on Google Scholar webpage using REST GET API."""
+class GoogleSearch():
+    """Base class for performing web search on Google using REST API."""
     def __init__(self, driver_path):
-        self._authsearch = 'https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors={0}'
-        self._gsidsearch = 'https://scholar.google.com/citations?hl=en&user={0}'
-        self.print_true = False
         self.setup_webdriver(driver_path)
-
+    
     def setup_webdriver(self, driver_path):
         """Setup the webdriver object."""
         options = ChromiumOptions()
@@ -29,6 +25,15 @@ class ScholarGsSearch():
         self.driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
             "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         })
+
+
+class ScholarGsSearch(GoogleSearch):
+    """Class that handling searching on Google Scholar webpage using REST GET API."""
+    def __init__(self, driver_path):
+        super().__init__(driver_path)
+        self._authsearch = 'https://scholar.google.com/citations?hl=en&view_op=search_authors&mauthors={0}'
+        self._gsidsearch = 'https://scholar.google.com/citations?hl=en&user={0}'
+        self.print_true = False
     
     def change_name(self, name):
         new_name = name[1:].split('_')
@@ -94,19 +99,36 @@ class ScholarGsSearch():
             tmp_gs_sid = url.split('user=', 1)[1]
             if len(tmp_gs_sid) >= 12:
                 gs_sid = tmp_gs_sid[:12]
+        # gs_sid
         Researcher['gs_sid'] = gs_sid
+        # coauthors that are listed at the lower right of the profile page
         Researcher["coauthors"] = Co_authors
+        # citation table
         Researcher["citation_table"] = [Citations_table[0], Citations_table[2]]
+        # time series citations
         Researcher["cites"] = {"years":years, "cites":cites}
+        # name
         nameList = driver.find_elements(By.ID, "gsc_prf_in")
         if (len(nameList) != 1):
             if self.print_true:
                 print("len(nameList)!=1")
             return None
         Researcher["name"] = nameList[0].text
+        # organization
         infoList = driver.find_elements(By.CLASS_NAME, 'gsc_prf_il')
         Researcher['organization'] = infoList[0].get_attribute('textContent')
+        # homepage
+        homepage_url = infoList[1].find_elements(By.TAG_NAME, 'a')
+        if len(homepage_url) == 0:
+            Researcher['homepage_url'] = None
+        else:
+            Researcher['homepage_url'] = homepage_url[0].get_attribute('href')
+        # email address
+        email_str_match = re.search(r'[\w-]+\.[\w.-]+', infoList[1].text)
+        Researcher['email_info'] = email_str_match.group(0)
+        # domain labels
         Researcher['domain_labels'] = [i.get_attribute('textContent').strip().lower() for i in infoList[2].find_elements(By.CLASS_NAME, 'gsc_prf_inta')]
+        # if not simple, get paper lists
         if not simple:
             button = driver.find_elements(By.CLASS_NAME, 'gs_btnPD')
             if (len(button) != 1):

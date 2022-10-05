@@ -5,8 +5,11 @@ from collections import defaultdict
 from selenium import webdriver
 from selenium.webdriver.chromium.webdriver import ChromiumDriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.errorhandler import WebDriverException
+from ScholarSearch import ScholarSearch
 from ScholarGsSearch import GoogleSearch
 from bs4 import BeautifulSoup
+from utils import get_str_similarity
 
 url_search_dict = {
     'google': 'https://www.google.com/search?q={0}'
@@ -23,20 +26,155 @@ class TwitterSearch(GoogleSearch):
     def __init__(self, driver_path):
         super().__init__(driver_path)
         self._urlsearch = url_search_dict['google']
+        self.print_true = True #NOTE: should be set by users
+        # initialize scholar_search object
+        self.scholar_search = ScholarSearch()
+        self.scholar_search.setup()
 
     def search_scholar(self, str_type: str, term: str):
         """
         NOTE: now the only allowed str_type is name
         """
         if str_type == 'name':
-            result = self._search_name_helper(term)
-            return self.filter_result(result, term, web_source='google')
+            scholar_search_result = self.scholar_search.get_scholar(query=term, simple=True, top_n=1, print_true=True)
+            branch_type = None
+            if len(scholar_search_result) == 0:
+                # directly search
+                url_fragment = self._urlsearch.format(f'{term} "twitter"')
+                result = self._search_google_helper(url_fragment)
+                twitter_ids = self.filter_result(result, term, web_source='google')
+                branch_type = 'directly search'
+            else:
+                twitter_ids = None
+                # try directly get twitter account through homepage
+                if 'homepage_url' in scholar_search_result[0] and scholar_search_result[0]['homepage_url'] is not None:
+                    twitter_ids = self._search_twitter_from_homepage(scholar_search_result[0]['homepage_url'], name=term, name_from_gs=scholar_search_result[0]["name"])
+                if twitter_ids is not None:
+                    branch_type = 'homepage'
+
+                # then try (google_name email_suffix "twitter")
+                if "email_info" in scholar_search_result[0] and scholar_search_result[0]["email_info"] != '' and twitter_ids is None:
+                    url_fragment = self._urlsearch.format(f'{scholar_search_result[0]["name"]} {scholar_search_result[0]["email_info"]} "twitter"')
+                    result = self._search_google_helper(url_fragment)
+                    twitter_ids = self.filter_result(result, term, web_source='google')
+                if twitter_ids is not None:
+                    branch_type = 'name + email'
+
+                # then try (google_name organization "twitter")
+                if "organization" in scholar_search_result[0] and scholar_search_result[0]["organization"] != '' and twitter_ids is None:
+                    url_fragment = self._urlsearch.format(f'{scholar_search_result[0]["name"]} {scholar_search_result[0]["organization"]} "twitter"')
+                    result = self._search_google_helper(url_fragment)
+                    twitter_ids = self.filter_result(result, term, web_source='google')
+                if twitter_ids is not None:
+                    branch_type = 'name + organization'
+
+                # then try (google_name "twitter")
+                if twitter_ids is None:
+                    url_fragment = self._urlsearch.format(f'{scholar_search_result[0]["name"]} "twitter"')
+                    result = self._search_google_helper(url_fragment)
+                    twitter_ids = self.filter_result(result, term, web_source='google')
+                if twitter_ids is not None:
+                    branch_type = 'name'
+
+
+            if self.print_true:
+                print(f'[INFO] branch_type: {branch_type}')
+                print(f'[INFO] twitter_ids: {twitter_ids}')
+
+            if twitter_ids is None or len(twitter_ids) == 0:
+                return None
+            elif type(twitter_ids) == dict:
+                twitter_ids_list = list(twitter_ids.keys())
+                highest_occurrence = twitter_ids[twitter_ids_list[0]]
+                candidate_list = []
+                for item in twitter_ids:
+                    if item[1] == highest_occurrence:
+                        if self._rank_by_similarity(item[0], term, scholar_search_result[0]["name"]) >= 0.15:
+                            candidate_list.append(item[0])
+                if len(candidate_list) > 0:
+                    return self._rank_by_similarity(candidate_list, term, scholar_search_result[0]['name'])[0]
+                return None
+            else:
+                return twitter_ids[0]
+
+            # TODO: match profile images of google_scholar/homepage with twitter profile images
+            # result = self._search_name_helper(term)
+            # return self.filter_result(result, term, web_source='google')
+        elif str_type == 'gs_url':
+            raise NotImplementedError
         else:
             raise NotImplementedError
 
-    def _search_name_helper(self, term: str):
-        url = self._urlsearch.format(term)
-        self.driver.get(url)
+    def _rank_by_similarity(self, twitter_url_origin_list: Union[list, str], name: str=None, name_from_gs: str=None):
+        # process name and name_from_gs
+        if name is not None:
+            name = re.sub('[0-9_\., ]', '', name.lower())
+        if name_from_gs is not None:
+            name_from_gs = re.sub('[0-9_\., ]', '', name_from_gs.lower())
+
+        if type(twitter_url_origin_list) == list:
+            
+            # else
+            twitter_url_list = [re.sub('[0-9_\., ]', '', item) for item in twitter_url_origin_list]
+            twitter_url_map_dict = {re.sub('[0-9_\., ]', '', item): item for item in twitter_url_origin_list}
+            # rank twitter_url_origin_list
+            if name is not None and name_from_gs is not None:
+                twitter_url_list = sorted(twitter_url_list, key=lambda x: max(get_str_similarity(x, name), get_str_similarity(x, name_from_gs)), reverse=True)
+            elif name is not None:
+                twitter_url_list = sorted(twitter_url_list, key=lambda x: get_str_similarity(x, name), reverse=True)
+            elif name_from_gs is not None:
+                twitter_url_list = sorted(twitter_url_list, key=lambda x: get_str_similarity(x, name_from_gs), reverse=True)
+            else:
+                # do not consider this branch at the moment
+                pass
+            twitter_url_origin_list = [twitter_url_map_dict[item] for item in twitter_url_list]
+            return twitter_url_origin_list
+        else:
+            twitter_url_origin_str = twitter_url_origin_list
+            twitter_url_str = re.sub('[0-9_\., ]', '', twitter_url_origin_str)
+            rank = 0
+            if name is not None and name_from_gs is not None:
+                rank = max(get_str_similarity(twitter_url_str, name), get_str_similarity(twitter_url_origin_list, name_from_gs))
+            elif name is not None:
+                rank = get_str_similarity(twitter_url_str, name)
+            elif name_from_gs is not None:
+                rank = get_str_similarity(twitter_url_str, name_from_gs)
+            
+            return rank
+
+    def _search_twitter_from_homepage(self, homepage_url: str, name: str=None, name_from_gs: str=None):
+        # get content of scholar homepage using chromedriver
+        try:
+            self.driver.get(homepage_url)
+        except WebDriverException as e:
+            if self.print_true:
+                print('[DEBUG] WebDriverException while getting homepage: %s' % homepage_url)
+                print(e)
+        time.sleep(3)
+
+        page = self.driver.page_source
+        soup = BeautifulSoup(page, "html.parser")
+        twitter_url_origin_list = list(set([re.findall('twitter.com/([^\/?]+)', item['href'])[0]
+            for item in soup.find_all(
+                href=re.compile('twitter.com/([^\/?]+)'))]))
+        print(soup.find_all(
+                href=re.compile('twitter.com/([^\/?]+)')))
+        # if there are no candidates for twitter account url, return None
+        if len(twitter_url_origin_list) == 0:
+            # return soup
+            return None
+
+        twitter_url_origin_list = self._rank_by_similarity(twitter_url_origin_list, name=name, name_from_gs=name_from_gs)
+
+        if self.print_true:
+            print(f'[DEBUG] Find a set of twitter ids on the provided homepage:\n{twitter_url_origin_list}')
+        
+        # only return the highest rank twitter account id
+        return twitter_url_origin_list
+
+    def _search_google_helper(self, google_url: str):
+        self.driver.get(google_url)
+        time.sleep(3)
 
         page = self.driver.page_source
         soup = BeautifulSoup(page, "html.parser")
@@ -52,33 +190,43 @@ class TwitterSearch(GoogleSearch):
             if link and title and description_box:
                 result_list.append(get_search_result(
                     href=link['href'], title=title.text, description=description_box.text))
-        print(result_list)
+        if self.print_true:
+            print(result_list)
         time.sleep(5)
+        return result_list
+        
 
     def filter_result(self, result_list, term, web_source):
         """
         web_source: google, twitter
         """
+        # sort twitter ids by occurrence frequency
         if web_source == 'google':
-            self.twitter_id_dict = defaultdict(int)
+            twitter_id_dict = defaultdict(int)
             for result in result_list:
-                if 'https://twitter.com/' in result['href']:
-                    self.twitter_id_dict[re.findall('https://twitter.com/([^\/]+)')[0]] += 1
-        
-        # goal 1: for 78k scholars, get their twitter accounts
-        # known information: scholar's name, 
-
-        # step 1: get a candidate list of twitter account id (name "twitter"; )
-        # step 2: 
-
-
-        # goal 2: for arbitrary scholars, get their twitter accounts
+                if 'twitter.com/' in result['href']:
+                    twitter_id_dict[re.findall('twitter.com/([^\/?]+)', result['href'])[0]] += 1
+        twitter_id_dict = dict(sorted(twitter_id_dict.items(), key=lambda item: item[1], reverse=True))
+        # then, sort twitter ids by str similarity?
+        # TODO
+        # TODO: enter into twitter page to check profile information
+        if len(twitter_id_dict) == 0:
+            return None
+        else:
+            return twitter_id_dict
+    
+    def search_scholar_batch(self, name_list: list):
+        result_list = []
+        for name in name_list:
+            result_list.append(self.search_scholar('name', name))
+        return result_list
 
     def get_scholar_twitter(self, str_type: str, term: str, only_one=True):
         """
         Final function that search a scholar's twitter account
+        # TODO
         """
-
+        raise NotImplementedError
         result = self.search_scholar(str_type=str_type, term=term)
 
         # first, google web search: name "twitter", get a list of top results, and check whatever name matches exactly

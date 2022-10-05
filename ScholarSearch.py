@@ -9,12 +9,12 @@ import re
 import time
 import sys
 import requests
-from difflib import SequenceMatcher
 from bs4 import BeautifulSoup
 # from .Scholar78kSearch import Scholar78kSearch
 # from .ScholarGsSearch import ScholarGsSearch
 from Scholar78kSearch import Scholar78kSearch
 from ScholarGsSearch import ScholarGsSearch
+from utils import get_str_similarity
 
 
 class ScholarSearch():
@@ -466,8 +466,5 @@ def generate_or_keyword_list(query_dict: dict) -> List[dict]:
 
     return or_keyword_list
 
-def get_str_similarity(a: str, b: str) -> float:
-    """Calculate the similarity of two strings and return a similarity ratio."""
-    return SequenceMatcher(None, a, b).ratio()
 
 

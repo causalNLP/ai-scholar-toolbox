@@ -55,6 +55,9 @@ class ScholarGsSearch(GoogleSearch):
         
         """
         url = self._gsidsearch.format(gs_sid)
+        self.search_gs_url(url, simple=simple)
+        
+    def search_gs_url(self, url: str, simple: bool = True):
         self.driver.get(url)
         scholar_dict = self._search_gsid_helper(self.driver, url, simple=simple)
         time.sleep(5)
@@ -65,6 +68,7 @@ class ScholarGsSearch(GoogleSearch):
             if self.print_true:
                 print('[Info] No scholars found given gs_sid in search_gs.')
             return []
+
         
     def _search_gsid_helper(self, driver: ChromiumDriver, url: str, simple: bool = True):
         """Helper function for search_gsid."""
@@ -125,7 +129,8 @@ class ScholarGsSearch(GoogleSearch):
             Researcher['homepage_url'] = homepage_url[0].get_attribute('href')
         # email address
         email_str_match = re.search(r'[\w-]+\.[\w.-]+', infoList[1].text)
-        Researcher['email_info'] = email_str_match.group(0)
+        if email_str_match is not None:
+            Researcher['email_info'] = email_str_match.group(0)
         # domain labels
         Researcher['domain_labels'] = [i.get_attribute('textContent').strip().lower() for i in infoList[2].find_elements(By.CLASS_NAME, 'gsc_prf_inta')]
         # if not simple, get paper lists
@@ -260,7 +265,8 @@ class ScholarGsSearch(GoogleSearch):
         self.driver.get(url)
         time.sleep(5)
         scholar_list = self._search_name_helper(self.driver, name_list)
-        if len(scholar_list) > 0 and len(scholar_list) <= top_n:
+        if len(scholar_list) > 0:
+        # if len(scholar_list) > 0 and len(scholar_list) <= top_n:
             if self.print_true:
                 print(f'[Info] Find {len(scholar_list)} scholars using query without gs_sid in step 4.')
             # return self._search_name_list_expand(scholar_list, simple=simple)

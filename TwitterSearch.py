@@ -210,16 +210,20 @@ class TwitterSearch(GoogleSearch):
         # then, sort twitter ids by str similarity?
         # TODO
         # TODO: enter into twitter page to check profile information
+        # Step 1: twitter profile vs google scholar profile
+        # Step 2: twitter tweets: check whether google scholar domains are in twitter tweets
+        # Step 3: twitter profile image (ask Yvonne about the performance)
+        
         if len(twitter_id_dict) == 0:
             return None
         else:
             return twitter_id_dict
     
     def search_scholar_batch(self, name_list: list):
-        result_list = []
+        self.result_list = []
         for name in name_list:
-            result_list.append(self.search_scholar('name', name))
-        return result_list
+            self.result_list.append(self.search_scholar('name', name))
+        return self.result_list
 
     def get_scholar_twitter(self, str_type: str, term: str, only_one=True):
         """

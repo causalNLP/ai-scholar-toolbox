@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import re
 import numpy as np
 from typing import Union, List
 
@@ -50,7 +51,7 @@ class Scholar78kSearch():
             name_list = [name[0], name[-1]]
             name = f'{name[0]} {name[-1]}' 
         elif type(name) is str:
-            name_list = name.split(' ')
+            name_list = re.sub('[0-9_\.\(\)\[\],]', '', name).split(' ')
         else:
             raise TypeError(f'Argument "name" passed to Scholar78kSearch.search_name has the wrong type.')
         df_row = self._search_name_only_helper(name, name_list)
